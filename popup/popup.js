@@ -75,7 +75,10 @@ document.addEventListener('DOMContentLoaded', function() {
         console.error('Failed to load specialists data');
       }
     } catch (error) {
-      console.error('Error loading specialists:', error);
+      console.error(
+        'AI Prompting Guide – popup: error loading specialists:',
+        formatError(error)
+      );
     }
   }
   
@@ -116,9 +119,17 @@ document.addEventListener('DOMContentLoaded', function() {
       if (response && response.preferences) {
         userPreferences = response.preferences;
         currentSpecialistId = userPreferences.currentSpecialist || null;
+      } else if (response && response.error) {
+        console.error(
+          'AI Prompting Guide – popup: failed to load user preferences:',
+          response.error
+        );
       }
     } catch (error) {
-      console.error('Error loading user preferences:', error);
+      console.error(
+        'AI Prompting Guide – popup: error loading user preferences:',
+        formatError(error)
+      );
     }
   }
   
@@ -303,6 +314,20 @@ document.addEventListener('DOMContentLoaded', function() {
   function handleOpenAbout(event) {
     event.preventDefault();
     chrome.tabs.create({ url: chrome.runtime.getURL('pages/about.html') });
+  }
+  
+  /**
+   * Utility: nicer error output (avoids “[object Object]”)
+   */
+  function formatError(err) {
+    if (!err) return 'Unknown error';
+    if (typeof err === 'string') return err;
+    if (err.message) return err.message;
+    try {
+      return JSON.stringify(err);
+    } catch (_) {
+      return String(err);
+    }
   }
   
   /**

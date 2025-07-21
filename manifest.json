@@ -5,7 +5,8 @@
   "description": "An intelligent prompting advisor and project guide for users working with LLMs and AI tools",
   "permissions": [
     "storage",
-    "activeTab"
+    "activeTab",
+    "scripting"
   ],
   "host_permissions": [
     "<all_urls>"
@@ -59,6 +60,7 @@
         "content/*.html",
         "content/*.css",
         "content/*.js",
+        "data/*.json",
         "images/*"
       ],
       "matches": ["<all_urls>"]

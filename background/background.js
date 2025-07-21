@@ -65,7 +65,28 @@ async function loadSpecialistsData() {
     }
   } catch (error) {
     console.error('AI Prompting Guide: Failed to load specialists data', error);
-    specialists = [];
+    /* ------------------------------------------------------------------
+     * Fallback – provide a minimal generic specialist so the UI continues
+     * ------------------------------------------------------------------ */
+    specialists = [
+      {
+        id: 'generic',
+        name: 'General Specialist',
+        description: 'General purpose prompting assistance',
+        welcomeMessage: 'I am a general prompting assistant. How can I help?',
+        placeholderText: 'Describe your task and I will suggest a prompt...',
+        icon: '🧠',
+        defaultPromptingTechniques: [],
+        commonPatterns: [],
+        pitfallAvoidance: [],
+        outputOptimization: []
+      }
+    ];
+    // Store fallback so subsequent loads succeed even if offline
+    await chrome.storage.local.set({ [STORAGE_KEYS.SPECIALISTS]: specialists });
+    console.warn(
+      'AI Prompting Guide: Using fallback specialist data. Extension will still function, but features are limited.'
+    );
   }
 }
 
@@ -92,7 +113,24 @@ async function loadModelsData() {
     }
   } catch (error) {
     console.error('AI Prompting Guide: Failed to load models data', error);
-    models = [];
+    /* ------------------------------------------------------------------
+     * Fallback – provide a minimal generic model so the UI continues
+     * ------------------------------------------------------------------ */
+    models = [
+      {
+        id: 'generic-model',
+        name: 'Generic Model',
+        description: 'Platform-agnostic AI model',
+        icon: '🤖',
+        optimizations: [],
+        considerations: [],
+        bestPractices: []
+      }
+    ];
+    await chrome.storage.local.set({ [STORAGE_KEYS.MODELS]: models });
+    console.warn(
+      'AI Prompting Guide: Using fallback model data. Extension will still function, but features are limited.'
+    );
   }
 }
 
@@ -184,6 +222,14 @@ function setupMessageListeners() {
         
       case 'getModels':
         sendResponse({ models });
+        break;
+        
+      /* ------------------------------------------------------------ *
+       * User preferences helpers for popup / content scripts
+       * ------------------------------------------------------------ */
+      case 'getUserPreferences':
+        // Return the cached preferences object (may be empty on first run)
+        sendResponse({ preferences: userPreferences });
         break;
         
       case 'getSpecialistDetails':
