@@ -449,10 +449,10 @@ chrome.runtime.onInstalled.addListener(async details => {
     
     await saveUserPreferences(defaultPreferences);
     
-    // Show onboarding or welcome page
-    chrome.tabs.create({
-      url: chrome.runtime.getURL('popup/welcome.html')
-    });
+    /* The original design opened a welcome page here, but the file
+       popup/welcome.html is not bundled. Opening it causes an
+       “ERR_FILE_NOT_FOUND” / “Cannot access a chrome:// URL” error.
+       We remove the call so installation completes without failing. */
   } else if (details.reason === 'update') {
     console.log('AI Prompting Guide: Extension updated');
     

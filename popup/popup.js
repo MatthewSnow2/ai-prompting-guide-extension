@@ -27,17 +27,28 @@ document.addEventListener('DOMContentLoaded', function() {
    * Initialize the popup interface
    */
   async function initialize() {
-    // Set up event listeners
-    setupEventListeners();
-    
-    // Load specialists data
-    await loadSpecialists();
-    
-    // Load user preferences
-    await loadUserPreferences();
-    
-    // Update UI based on loaded data
-    updateUI();
+    try {
+      // Set up event listeners
+      setupEventListeners();
+      
+      // Load specialists data
+      await loadSpecialists();
+      
+      // Load user preferences
+      await loadUserPreferences();
+      
+      // Update UI based on loaded data
+      updateUI();
+    } catch (error) {
+      console.error('AI Prompting Guide - Initialization failed:', formatError(error));
+      // Show error state in UI if possible
+      const statusIndicator = document.querySelector('.status-indicator');
+      const statusText = document.querySelector('.status');
+      if (statusIndicator && statusText) {
+        statusIndicator.style.backgroundColor = '#ea4335'; // Red
+        statusText.textContent = 'Error';
+      }
+    }
   }
   
   /**
@@ -79,6 +90,13 @@ document.addEventListener('DOMContentLoaded', function() {
         'AI Prompting Guide – popup: error loading specialists:',
         formatError(error)
       );
+      // Create a fallback specialist if needed
+      specialists = [{
+        id: 'fallback-specialist',
+        name: 'General Specialist',
+        icon: '🧠'
+      }];
+      populateSpecialistDropdown();
     }
   }
   
@@ -130,6 +148,12 @@ document.addEventListener('DOMContentLoaded', function() {
         'AI Prompting Guide – popup: error loading user preferences:',
         formatError(error)
       );
+      // Use default preferences if loading fails
+      userPreferences = {
+        rememberPosition: true,
+        autoOpen: false,
+        globalRulesEnabled: false
+      };
     }
   }
   
@@ -137,18 +161,22 @@ document.addEventListener('DOMContentLoaded', function() {
    * Update UI elements based on loaded data
    */
   function updateUI() {
-    // Update specialist dropdown
-    if (currentSpecialistId) {
-      specialistSelect.value = currentSpecialistId;
+    try {
+      // Update specialist dropdown
+      if (currentSpecialistId) {
+        specialistSelect.value = currentSpecialistId;
+      }
+      
+      // Update settings toggles
+      autoOpenSetting.checked = userPreferences.autoOpen || false;
+      rememberPositionSetting.checked = userPreferences.rememberPosition !== false; // Default to true
+      globalRulesSetting.checked = userPreferences.globalRulesEnabled || false;
+      
+      // Update status indicator
+      updateStatusIndicator();
+    } catch (error) {
+      console.error('AI Prompting Guide - Error updating UI:', formatError(error));
     }
-    
-    // Update settings toggles
-    autoOpenSetting.checked = userPreferences.autoOpen || false;
-    rememberPositionSetting.checked = userPreferences.rememberPosition !== false; // Default to true
-    globalRulesSetting.checked = userPreferences.globalRulesEnabled || false;
-    
-    // Update status indicator
-    updateStatusIndicator();
   }
   
   /**
@@ -158,126 +186,197 @@ document.addEventListener('DOMContentLoaded', function() {
     const statusIndicator = document.querySelector('.status-indicator');
     const statusText = document.querySelector('.status');
     
-    // Check if the extension is active on the current page
-    chrome.tabs.query({ active: true, currentWindow: true }, async tabs => {
-      try {
-        const response = await sendMessageToTab(tabs[0].id, { action: 'getStatus' });
-        
-        if (response && response.active) {
-          statusIndicator.style.backgroundColor = '#34a853'; // Green
-          statusText.textContent = 'Active';
-        } else {
-          statusIndicator.style.backgroundColor = '#fbbc05'; // Yellow
-          statusText.textContent = 'Ready';
+    if (!statusIndicator || !statusText) return;
+    
+    try {
+      // Check if the extension is active on the current page
+      chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
+        if (chrome.runtime.lastError) {
+          console.error('Error querying tabs:', chrome.runtime.lastError);
+          setStatusInactive();
+          return;
         }
-      } catch (error) {
-        // Extension not initialized on this page
-        statusIndicator.style.backgroundColor = '#ea4335'; // Red
-        statusText.textContent = 'Inactive';
-      }
-    });
+        
+        if (!tabs || !tabs[0] || !tabs[0].id) {
+          console.error('No active tab found');
+          setStatusInactive();
+          return;
+        }
+        
+        sendMessageToTab(tabs[0].id, { action: 'getStatus' })
+          .then(response => {
+            if (response && response.active) {
+              statusIndicator.style.backgroundColor = '#34a853'; // Green
+              statusText.textContent = 'Active';
+            } else {
+              statusIndicator.style.backgroundColor = '#fbbc05'; // Yellow
+              statusText.textContent = 'Ready';
+            }
+          })
+          .catch(() => {
+            // Extension not initialized on this page
+            setStatusInactive();
+          });
+      });
+    } catch (error) {
+      console.error('Error updating status indicator:', formatError(error));
+      setStatusInactive();
+    }
+    
+    function setStatusInactive() {
+      statusIndicator.style.backgroundColor = '#ea4335'; // Red
+      statusText.textContent = 'Inactive';
+    }
   }
   
   /**
    * Handle toggle interface button click
    */
   function handleToggleInterface() {
-    chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
-      sendMessageToTab(tabs[0].id, { action: 'toggleInterface' })
-        .then(response => {
-          if (response && response.success) {
-            // Close the popup
-            window.close();
-          }
-        })
-        .catch(error => {
-          // If content script is not loaded, inject it first
-          chrome.scripting.executeScript({
-            target: { tabId: tabs[0].id },
-            files: ['content/content.js']
-          }, () => {
-            chrome.scripting.insertCSS({
-              target: { tabId: tabs[0].id },
-              files: ['content/content.css']
-            }, () => {
-              // Try again after injecting
-              setTimeout(() => {
-                sendMessageToTab(tabs[0].id, { action: 'toggleInterface' })
-                  .then(() => window.close());
-              }, 100);
-            });
+    try {
+      chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
+        if (chrome.runtime.lastError) {
+          console.error('Error querying tabs:', chrome.runtime.lastError);
+          return;
+        }
+        
+        if (!tabs || !tabs[0] || !tabs[0].id) {
+          console.error('No active tab found');
+          return;
+        }
+        
+        sendMessageToTab(tabs[0].id, { action: 'toggleInterface' })
+          .then(response => {
+            if (response && response.success) {
+              // Close the popup
+              window.close();
+            }
+          })
+          .catch(() => {
+            // If content script is not loaded, inject it first
+            try {
+              chrome.scripting.executeScript({
+                target: { tabId: tabs[0].id },
+                files: ['content/content.js']
+              })
+              .then(() => {
+                return chrome.scripting.insertCSS({
+                  target: { tabId: tabs[0].id },
+                  files: ['content/content.css']
+                });
+              })
+              .then(() => {
+                // Try again after injecting
+                setTimeout(() => {
+                  sendMessageToTab(tabs[0].id, { action: 'toggleInterface' })
+                    .then(() => window.close())
+                    .catch(err => console.error('Failed to toggle after injection:', formatError(err)));
+                }, 100);
+              })
+              .catch(err => {
+                console.error('Failed to inject content script:', formatError(err));
+                // Show error message to user
+                alert('Could not load extension on this page. It may be restricted by the website.');
+              });
+            } catch (error) {
+              console.error('Error during script injection:', formatError(error));
+            }
           });
-        });
-    });
+      });
+    } catch (error) {
+      console.error('Error in toggle interface handler:', formatError(error));
+    }
   }
   
   /**
    * Handle apply specialist button click
    */
   function handleApplySpecialist() {
-    const selectedSpecialistId = specialistSelect.value;
-    
-    if (!selectedSpecialistId) {
-      alert('Please select a specialist first.');
-      return;
-    }
-    
-    // Save the selected specialist as current
-    currentSpecialistId = selectedSpecialistId;
-    
-    // Update user preferences
-    userPreferences.currentSpecialist = currentSpecialistId;
-    saveUserPreferences();
-    
-    // Apply to active interface if open
-    chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
-      sendMessageToTab(tabs[0].id, { 
-        action: 'changeSpecialist', 
-        specialistId: selectedSpecialistId 
-      }).catch(() => {
-        // Interface not open on this page, that's okay
+    try {
+      const selectedSpecialistId = specialistSelect.value;
+      
+      if (!selectedSpecialistId) {
+        alert('Please select a specialist first.');
+        return;
+      }
+      
+      // Save the selected specialist as current
+      currentSpecialistId = selectedSpecialistId;
+      
+      // Update user preferences
+      userPreferences.currentSpecialist = currentSpecialistId;
+      saveUserPreferences();
+      
+      // Apply to active interface if open
+      chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
+        if (chrome.runtime.lastError) {
+          console.error('Error querying tabs:', chrome.runtime.lastError);
+          return;
+        }
+        
+        if (!tabs || !tabs[0] || !tabs[0].id) return;
+        
+        sendMessageToTab(tabs[0].id, { 
+          action: 'changeSpecialist', 
+          specialistId: selectedSpecialistId 
+        }).catch(() => {
+          // Interface not open on this page, that's okay
+        });
       });
-    });
-    
-    // Show confirmation
-    const originalText = applySpecialistButton.textContent;
-    applySpecialistButton.textContent = 'Applied!';
-    setTimeout(() => {
-      applySpecialistButton.textContent = originalText;
-    }, 1500);
+      
+      // Show confirmation
+      const originalText = applySpecialistButton.textContent;
+      applySpecialistButton.textContent = 'Applied!';
+      setTimeout(() => {
+        applySpecialistButton.textContent = originalText;
+      }, 1500);
+    } catch (error) {
+      console.error('Error applying specialist:', formatError(error));
+    }
   }
   
   /**
    * Handle setting change events
    */
   function handleSettingChange(event) {
-    const setting = event.target;
-    
-    switch(setting.id) {
-      case 'autoOpenSetting':
-        userPreferences.autoOpen = setting.checked;
-        break;
-      case 'rememberPositionSetting':
-        userPreferences.rememberPosition = setting.checked;
-        break;
-      case 'globalRulesSetting':
-        userPreferences.globalRulesEnabled = setting.checked;
-        // Also update in active interfaces
-        chrome.tabs.query({}, tabs => {
-          tabs.forEach(tab => {
-            sendMessageToTab(tab.id, { 
-              action: 'updateGlobalRules', 
-              enabled: setting.checked 
-            }).catch(() => {
-              // Interface not open on this page, that's okay
+    try {
+      const setting = event.target;
+      
+      switch(setting.id) {
+        case 'autoOpenSetting':
+          userPreferences.autoOpen = setting.checked;
+          break;
+        case 'rememberPositionSetting':
+          userPreferences.rememberPosition = setting.checked;
+          break;
+        case 'globalRulesSetting':
+          userPreferences.globalRulesEnabled = setting.checked;
+          // Also update in active interfaces
+          chrome.tabs.query({}, tabs => {
+            if (chrome.runtime.lastError) {
+              console.error('Error querying tabs:', chrome.runtime.lastError);
+              return;
+            }
+            
+            tabs.forEach(tab => {
+              if (!tab || !tab.id) return;
+              
+              sendMessageToTab(tab.id, { 
+                action: 'updateGlobalRules', 
+                enabled: setting.checked 
+              }).catch(() => {
+                // Interface not open on this page, that's okay
+              });
             });
           });
-        });
-        break;
+          break;
+      }
+      
+      // Save updated preferences
+      saveUserPreferences();
+    } catch (error) {
+      console.error('Error handling setting change:', formatError(error));
     }
-    
-    // Save updated preferences
-    saveUserPreferences();
   }
   
   /**
@@ -288,7 +387,7 @@ document.addEventListener('DOMContentLoaded', function() {
       action: 'saveUserPreferences', 
       preferences: userPreferences 
     }).catch(error => {
-      console.error('Error saving preferences:', error);
+      console.error('Error saving preferences:', formatError(error));
     });
   }
   
@@ -296,28 +395,51 @@ document.addEventListener('DOMContentLoaded', function() {
    * Handle opening options page
    */
   function handleOpenOptions(event) {
-    event.preventDefault();
-    chrome.runtime.openOptionsPage();
+    try {
+      event.preventDefault();
+      chrome.runtime.openOptionsPage();
+    } catch (error) {
+      console.error('Error opening options page:', formatError(error));
+      alert('Options page is not available.');
+    }
   }
   
   /**
    * Handle opening help page
    */
   function handleOpenHelp(event) {
-    event.preventDefault();
-    chrome.tabs.create({ url: chrome.runtime.getURL('pages/help.html') });
+    try {
+      event.preventDefault();
+      chrome.tabs.create({ url: chrome.runtime.getURL('pages/help.html') })
+        .catch(error => {
+          console.error('Error opening help page:', formatError(error));
+          alert('Help page is not available.');
+        });
+    } catch (error) {
+      console.error('Error opening help page:', formatError(error));
+      alert('Help page is not available.');
+    }
   }
   
   /**
    * Handle opening about page
    */
   function handleOpenAbout(event) {
-    event.preventDefault();
-    chrome.tabs.create({ url: chrome.runtime.getURL('pages/about.html') });
+    try {
+      event.preventDefault();
+      chrome.tabs.create({ url: chrome.runtime.getURL('pages/about.html') })
+        .catch(error => {
+          console.error('Error opening about page:', formatError(error));
+          alert('About page is not available.');
+        });
+    } catch (error) {
+      console.error('Error opening about page:', formatError(error));
+      alert('About page is not available.');
+    }
   }
   
   /**
-   * Utility: nicer error output (avoids “[object Object]”)
+   * Utility: nicer error output (avoids "[object Object]")
    */
   function formatError(err) {
     if (!err) return 'Unknown error';
@@ -335,13 +457,17 @@ document.addEventListener('DOMContentLoaded', function() {
    */
   function sendMessageToBackground(message) {
     return new Promise((resolve, reject) => {
-      chrome.runtime.sendMessage(message, response => {
-        if (chrome.runtime.lastError) {
-          reject(chrome.runtime.lastError);
-        } else {
-          resolve(response);
-        }
-      });
+      try {
+        chrome.runtime.sendMessage(message, response => {
+          if (chrome.runtime.lastError) {
+            reject(chrome.runtime.lastError);
+          } else {
+            resolve(response || {});
+          }
+        });
+      } catch (error) {
+        reject(error);
+      }
     });
   }
   
@@ -350,13 +476,17 @@ document.addEventListener('DOMContentLoaded', function() {
    */
   function sendMessageToTab(tabId, message) {
     return new Promise((resolve, reject) => {
-      chrome.tabs.sendMessage(tabId, message, response => {
-        if (chrome.runtime.lastError) {
-          reject(chrome.runtime.lastError);
-        } else {
-          resolve(response);
-        }
-      });
+      try {
+        chrome.tabs.sendMessage(tabId, message, response => {
+          if (chrome.runtime.lastError) {
+            reject(chrome.runtime.lastError);
+          } else {
+            resolve(response || {});
+          }
+        });
+      } catch (error) {
+        reject(error);
+      }
     });
   }
 });
