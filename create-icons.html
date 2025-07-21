@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Prompting Guide - Icon Generator</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f8f9fa;
+            color: #202124;
+        }
+        h1 {
+            color: #4285f4;
+            margin-bottom: 10px;
+        }
+        .description {
+            margin-bottom: 20px;
+            color: #5f6368;
+        }
+        .controls {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .preview-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .preview-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #fff;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .preview-item canvas {
+            border: 1px solid #dadce0;
+            margin-bottom: 10px;
+            background-image: linear-gradient(45deg, #f0f0f0 25%, transparent 25%), 
+                              linear-gradient(-45deg, #f0f0f0 25%, transparent 25%), 
+                              linear-gradient(45deg, transparent 75%, #f0f0f0 75%), 
+                              linear-gradient(-45deg, transparent 75%, #f0f0f0 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+        }
+        .download-btn {
+            background-color: #4285f4;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+            text-decoration: none;
+            display: inline-block;
+            margin-top: 5px;
+        }
+        .download-btn:hover {
+            background-color: #3367d6;
+        }
+        .download-all {
+            background-color: #34a853;
+            margin-top: 20px;
+            padding: 10px 20px;
+        }
+        .error {
+            color: #ea4335;
+            padding: 10px;
+            background-color: #fce8e6;
+            border-radius: 4px;
+            margin-top: 10px;
+            display: none;
+        }
+        .file-input {
+            margin-bottom: 15px;
+        }
+        .instructions {
+            background-color: #e8f0fe;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 30px;
+        }
+        .instructions h2 {
+            margin-top: 0;
+            color: #4285f4;
+        }
+        .instructions ol {
+            padding-left: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>AI Prompting Guide - Icon Generator</h1>
+    <p class="description">Convert SVG icon to the required PNG formats for Chrome extension</p>
+    
+    <div class="controls">
+        <div class="file-input">
+            <label for="svgFile">Select SVG file:</label>
+            <input type="file" id="svgFile" accept=".svg">
+            <button id="useDefaultSvg" class="download-btn">Use Default SVG</button>
+        </div>
+        
+        <button id="generateIcons" class="download-btn">Generate Icons</button>
+        <div id="error" class="error"></div>
+    </div>
+    
+    <div class="preview-container" id="previewContainer"></div>
+    
+    <button id="downloadAll" class="download-btn download-all" style="display: none;">Download All Icons as ZIP</button>
+    
+    <div class="instructions">
+        <h2>How to use</h2>
+        <ol>
+            <li>Select an SVG file or use the default icon</li>
+            <li>Click "Generate Icons" to create the PNG versions</li>
+            <li>Download individual icons or use "Download All" to get a ZIP file</li>
+            <li>Place the downloaded icons in the <code>/images</code> folder of your extension</li>
+        </ol>
+    </div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script>
+        // Icon sizes needed for Chrome extension
+        const ICON_SIZES = [16, 32, 48, 128];
+        
+        // Default SVG content from our icon.svg file
+        const DEFAULT_SVG = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <!-- Definitions for gradients and filters -->
+  <defs>
+    <linearGradient id="backgroundGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4285f4" />
+      <stop offset="100%" stop-color="#8c52ff" />
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="3" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+  
+  <!-- Background circle -->
+  <circle cx="64" cy="64" r="60" fill="url(#backgroundGradient)" />
+  
+  <!-- Brain outline -->
+  <path d="M64,30 
+           C48,30 40,42 40,52 
+           C40,62 44,68 40,76 
+           C36,84 40,94 50,98 
+           C60,102 68,98 78,102 
+           C88,106 96,98 96,90 
+           C96,82 92,78 92,70 
+           C92,62 88,58 88,50 
+           C88,42 80,30 64,30 Z" 
+        fill="white" opacity="0.9" filter="url(#glow)" />
+  
+  <!-- Circuit lines -->
+  <path d="M50,50 L78,50 M64,50 L64,90 M50,70 L78,70 M50,90 L78,90" 
+        stroke="#4285f4" stroke-width="2.5" fill="none" stroke-linecap="round" />
+  
+  <!-- Circuit nodes -->
+  <circle cx="50" cy="50" r="3" fill="#4285f4" />
+  <circle cx="64" cy="50" r="3" fill="#8c52ff" />
+  <circle cx="78" cy="50" r="3" fill="#4285f4" />
+  <circle cx="50" cy="70" r="3" fill="#8c52ff" />
+  <circle cx="64" cy="70" r="3" fill="#4285f4" />
+  <circle cx="78" cy="70" r="3" fill="#8c52ff" />
+  <circle cx="50" cy="90" r="3" fill="#4285f4" />
+  <circle cx="64" cy="90" r="3" fill="#8c52ff" />
+  <circle cx="78" cy="90" r="3" fill="#4285f4" />
+  
+  <!-- Pulse animation for AI effect -->
+  <circle cx="64" cy="64" r="62" stroke="white" stroke-width="2" fill="none" opacity="0.3">
+    <animate attributeName="r" values="62;65;62" dur="2s" repeatCount="indefinite" />
+    <animate attributeName="opacity" values="0.3;0.1;0.3" dur="2s" repeatCount="indefinite" />
+  </circle>
+</svg>`;
+        
+        // DOM elements
+        const svgFileInput = document.getElementById('svgFile');
+        const useDefaultSvgButton = document.getElementById('useDefaultSvg');
+        const generateIconsButton = document.getElementById('generateIcons');
+        const downloadAllButton = document.getElementById('downloadAll');
+        const previewContainer = document.getElementById('previewContainer');
+        const errorElement = document.getElementById('error');
+        
+        // Store generated blob URLs for cleanup
+        let generatedBlobUrls = [];
+        
+        // Event listeners
+        useDefaultSvgButton.addEventListener('click', useDefaultSvg);
+        generateIconsButton.addEventListener('click', generateIcons);
+        downloadAllButton.addEventListener('click', downloadAllIcons);
+        
+        /**
+         * Use the default SVG icon
+         */
+        function useDefaultSvg() {
+            clearPreviews();
+            const svgBlob = new Blob([DEFAULT_SVG], { type: 'image/svg+xml' });
+            generateIconsFromSvg(svgBlob);
+        }
+        
+        /**
+         * Generate icons from the selected file or default SVG
+         */
+        function generateIcons() {
+            clearPreviews();
+            
+            if (svgFileInput.files.length > 0) {
+                const file = svgFileInput.files[0];
+                if (file.type === 'image/svg+xml') {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const svgBlob = new Blob([e.target.result], { type: 'image/svg+xml' });
+                        generateIconsFromSvg(svgBlob);
+                    };
+                    reader.readAsText(file);
+                } else {
+                    showError('Please select a valid SVG file.');
+                }
+            } else {
+                showError('Please select an SVG file or use the default SVG.');
+            }
+        }
+        
+        /**
+         * Generate icons from an SVG blob
+         */
+        function generateIconsFromSvg(svgBlob) {
+            hideError();
+            
+            // Create object URL for the SVG
+            const svgUrl = URL.createObjectURL(svgBlob);
+            generatedBlobUrls.push(svgUrl);
+            
+            // Create an image element to load the SVG
+            const img = new Image();
+            img.onload = () => {
+                // Generate icons for each size
+                ICON_SIZES.forEach(size => {
+                    createIconPreview(img, size);
+                });
+                
+                // Show download all button
+                downloadAllButton.style.display = 'block';
+            };
+            img.onerror = () => {
+                showError('Failed to load SVG. Please check if it\'s a valid SVG file.');
+            };
+            img.src = svgUrl;
+        }
+        
+        /**
+         * Create a preview for a specific icon size
+         */
+        function createIconPreview(img, size) {
+            // Create container for this preview
+            const previewItem = document.createElement('div');
+            previewItem.className = 'preview-item';
+            
+            // Create and set up canvas
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            canvas.style.width = Math.max(64, size) + 'px';
+            canvas.style.height = Math.max(64, size) + 'px';
+            
+            // Draw SVG to canvas
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, size, size);
+            ctx.drawImage(img, 0, 0, size, size);
+            
+            // Create size label
+            const sizeLabel = document.createElement('div');
+            sizeLabel.textContent = `${size}x${size}`;
+            
+            // Create download button
+            const downloadBtn = document.createElement('a');
+            downloadBtn.className = 'download-btn';
+            downloadBtn.textContent = 'Download';
+            downloadBtn.download = `icon${size}.png`;
+            
+            // Convert canvas to blob and set as download link
+            canvas.toBlob((blob) => {
+                const url = URL.createObjectURL(blob);
+                generatedBlobUrls.push(url);
+                downloadBtn.href = url;
+            });
+            
+            // Assemble the preview item
+            previewItem.appendChild(canvas);
+            previewItem.appendChild(sizeLabel);
+            previewItem.appendChild(downloadBtn);
+            previewContainer.appendChild(previewItem);
+        }
+        
+        /**
+         * Download all icons as a ZIP file
+         */
+        async function downloadAllIcons() {
+            const zip = new JSZip();
+            const canvases = previewContainer.querySelectorAll('canvas');
+            
+            if (canvases.length === 0) {
+                showError('No icons generated yet.');
+                return;
+            }
+            
+            // Add each canvas to the ZIP as a PNG
+            const promises = Array.from(canvases).map(canvas => {
+                return new Promise(resolve => {
+                    const size = canvas.width;
+                    canvas.toBlob(blob => {
+                        zip.file(`icon${size}.png`, blob);
+                        resolve();
+                    });
+                });
+            });
+            
+            // Wait for all blobs to be added
+            await Promise.all(promises);
+            
+            // Generate the ZIP file
+            const zipBlob = await zip.generateAsync({ type: 'blob' });
+            
+            // Create download link
+            const url = URL.createObjectURL(zipBlob);
+            generatedBlobUrls.push(url);
+            
+            const downloadLink = document.createElement('a');
+            downloadLink.href = url;
+            downloadLink.download = 'ai-prompting-guide-icons.zip';
+            document.body.appendChild(downloadLink);
+            downloadLink.click();
+            document.body.removeChild(downloadLink);
+        }
+        
+        /**
+         * Clear all previews and clean up blob URLs
+         */
+        function clearPreviews() {
+            previewContainer.innerHTML = '';
+            downloadAllButton.style.display = 'none';
+            
+            // Clean up blob URLs
+            generatedBlobUrls.forEach(url => URL.revokeObjectURL(url));
+            generatedBlobUrls = [];
+        }
+        
+        /**
+         * Show error message
+         */
+        function showError(message) {
+            errorElement.textContent = message;
+            errorElement.style.display = 'block';
+        }
+        
+        /**
+         * Hide error message
+         */
+        function hideError() {
+            errorElement.style.display = 'none';
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,58 @@
+{
+  "models": [
+    {
+      "id": "claude-models",
+      "name": "Claude Models",
+      "description": "Sonnet 4, Opus 4 (with thinking model optimizations)",
+      "icon": "🧠",
+      "optimizations": [],
+      "considerations": [],
+      "bestPractices": []
+    },
+    {
+      "id": "openai-models",
+      "name": "OpenAI Models",
+      "description": "GPT-4o, o1-preview, o1-mini (with reasoning model considerations)",
+      "icon": "🤖",
+      "optimizations": [],
+      "considerations": [],
+      "bestPractices": []
+    },
+    {
+      "id": "google-models",
+      "name": "Google Models",
+      "description": "Gemini Ultra, Gemini Pro",
+      "icon": "🌐",
+      "optimizations": [],
+      "considerations": [],
+      "bestPractices": []
+    },
+    {
+      "id": "thinking-models",
+      "name": "Thinking Models",
+      "description": "General category for any reasoning-capable model",
+      "icon": "💭",
+      "optimizations": [],
+      "considerations": [],
+      "bestPractices": []
+    },
+    {
+      "id": "standard-models",
+      "name": "Standard Models",
+      "description": "General category for traditional completion models",
+      "icon": "📝",
+      "optimizations": [],
+      "considerations": [],
+      "bestPractices": []
+    },
+    {
+      "id": "other-generic",
+      "name": "Other/Generic",
+      "description": "Platform-agnostic advice for any AI model",
+      "icon": "⚙️",
+      "optimizations": [],
+      "considerations": [],
+      "bestPractices": []
+    }
+  ]
+}

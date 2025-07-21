@@ -1,0 +1,124 @@
+{
+  "specialists": [
+    {
+      "id": "marketing-content",
+      "name": "Marketing & Content Specialist",
+      "description": "Campaign creation, copywriting, social media, brand messaging",
+      "welcomeMessage": "I am a Marketing & Content Specialist. How can I help optimize your marketing prompts today?",
+      "placeholderText": "Describe your marketing challenge or content needs (e.g., 'Help me craft a product launch email campaign')...",
+      "icon": "📣",
+      "defaultPromptingTechniques": [],
+      "commonPatterns": [],
+      "pitfallAvoidance": [],
+      "outputOptimization": []
+    },
+    {
+      "id": "software-development",
+      "name": "Software Development Specialist",
+      "description": "Code generation, debugging, architecture, technical documentation",
+      "welcomeMessage": "I am a Software Development Specialist. What coding or development challenge can I help you with?",
+      "placeholderText": "Describe your development task or code issue (e.g., 'Help me create a React component for user authentication')...",
+      "icon": "💻",
+      "defaultPromptingTechniques": [],
+      "commonPatterns": [],
+      "pitfallAvoidance": [],
+      "outputOptimization": []
+    },
+    {
+      "id": "data-analysis",
+      "name": "Data Analysis Specialist",
+      "description": "Data interpretation, visualization, statistical analysis, reporting",
+      "welcomeMessage": "I am a Data Analysis Specialist. What data challenges would you like help with today?",
+      "placeholderText": "Describe your data analysis needs (e.g., 'Help me create prompts for analyzing customer churn data')...",
+      "icon": "📊",
+      "defaultPromptingTechniques": [],
+      "commonPatterns": [],
+      "pitfallAvoidance": [],
+      "outputOptimization": []
+    },
+    {
+      "id": "automation",
+      "name": "Automation Specialist",
+      "description": "n8n workflows, Zapier integrations, process automation, API connections",
+      "welcomeMessage": "I am an Automation Specialist. How can I help streamline your workflows today?",
+      "placeholderText": "Describe your automation needs (e.g., 'Help me create prompts for setting up a Zapier integration between Slack and Google Sheets')...",
+      "icon": "⚙️",
+      "defaultPromptingTechniques": [],
+      "commonPatterns": [],
+      "pitfallAvoidance": [],
+      "outputOptimization": []
+    },
+    {
+      "id": "research-writing",
+      "name": "Research & Writing Specialist",
+      "description": "Academic research, article writing, fact-checking, citation management",
+      "welcomeMessage": "I am a Research & Writing Specialist. What research or writing project can I assist you with?",
+      "placeholderText": "Describe your research or writing needs (e.g., 'Help me craft prompts for researching renewable energy technologies')...",
+      "icon": "📝",
+      "defaultPromptingTechniques": [],
+      "commonPatterns": [],
+      "pitfallAvoidance": [],
+      "outputOptimization": []
+    },
+    {
+      "id": "design-creative",
+      "name": "Design & Creative Specialist",
+      "description": "Visual design prompts, creative brainstorming, art direction, UX/UI guidance",
+      "welcomeMessage": "I am a Design & Creative Specialist. How can I help with your creative projects today?",
+      "placeholderText": "Describe your design or creative needs (e.g., 'Help me craft prompts for generating logo concepts for a fitness brand')...",
+      "icon": "🎨",
+      "defaultPromptingTechniques": [],
+      "commonPatterns": [],
+      "pitfallAvoidance": [],
+      "outputOptimization": []
+    },
+    {
+      "id": "business-strategy",
+      "name": "Business Strategy Specialist",
+      "description": "Strategic planning, market analysis, decision-making frameworks, competitive research",
+      "welcomeMessage": "I am a Business Strategy Specialist. What strategic challenges can I help you address?",
+      "placeholderText": "Describe your business strategy needs (e.g., 'Help me create prompts for analyzing market entry opportunities')...",
+      "icon": "📈",
+      "defaultPromptingTechniques": [],
+      "commonPatterns": [],
+      "pitfallAvoidance": [],
+      "outputOptimization": []
+    },
+    {
+      "id": "customer-support",
+      "name": "Customer Support Specialist",
+      "description": "Help documentation, FAQ creation, troubleshooting guides, response templates",
+      "welcomeMessage": "I am a Customer Support Specialist. How can I help improve your support communications?",
+      "placeholderText": "Describe your customer support needs (e.g., 'Help me create prompts for generating troubleshooting guides')...",
+      "icon": "🛟",
+      "defaultPromptingTechniques": [],
+      "commonPatterns": [],
+      "pitfallAvoidance": [],
+      "outputOptimization": []
+    },
+    {
+      "id": "education-training",
+      "name": "Education & Training Specialist",
+      "description": "Curriculum development, lesson planning, educational content, assessment creation",
+      "welcomeMessage": "I am an Education & Training Specialist. How can I help with your learning materials today?",
+      "placeholderText": "Describe your education or training needs (e.g., 'Help me create prompts for developing an online course on digital marketing')...",
+      "icon": "🎓",
+      "defaultPromptingTechniques": [],
+      "commonPatterns": [],
+      "pitfallAvoidance": [],
+      "outputOptimization": []
+    },
+    {
+      "id": "project-management",
+      "name": "Project Management Specialist",
+      "description": "Task breakdown, timeline planning, resource allocation, stakeholder communication",
+      "welcomeMessage": "I am a Project Management Specialist. What project challenges can I help you tackle?",
+      "placeholderText": "Describe your project management needs (e.g., 'Help me create prompts for breaking down a website redesign project')...",
+      "icon": "📋",
+      "defaultPromptingTechniques": [],
+      "commonPatterns": [],
+      "pitfallAvoidance": [],
+      "outputOptimization": []
+    }
+  ]
+}

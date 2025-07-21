@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <!-- Definitions for gradients and filters -->
+  <defs>
+    <linearGradient id="backgroundGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4285f4" />
+      <stop offset="100%" stop-color="#8c52ff" />
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="3" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+  
+  <!-- Background circle -->
+  <circle cx="64" cy="64" r="60" fill="url(#backgroundGradient)" />
+  
+  <!-- Brain outline -->
+  <path d="M64,30 
+           C48,30 40,42 40,52 
+           C40,62 44,68 40,76 
+           C36,84 40,94 50,98 
+           C60,102 68,98 78,102 
+           C88,106 96,98 96,90 
+           C96,82 92,78 92,70 
+           C92,62 88,58 88,50 
+           C88,42 80,30 64,30 Z" 
+        fill="white" opacity="0.9" filter="url(#glow)" />
+  
+  <!-- Circuit lines -->
+  <path d="M50,50 L78,50 M64,50 L64,90 M50,70 L78,70 M50,90 L78,90" 
+        stroke="#4285f4" stroke-width="2.5" fill="none" stroke-linecap="round" />
+  
+  <!-- Circuit nodes -->
+  <circle cx="50" cy="50" r="3" fill="#4285f4" />
+  <circle cx="64" cy="50" r="3" fill="#8c52ff" />
+  <circle cx="78" cy="50" r="3" fill="#4285f4" />
+  <circle cx="50" cy="70" r="3" fill="#8c52ff" />
+  <circle cx="64" cy="70" r="3" fill="#4285f4" />
+  <circle cx="78" cy="70" r="3" fill="#8c52ff" />
+  <circle cx="50" cy="90" r="3" fill="#4285f4" />
+  <circle cx="64" cy="90" r="3" fill="#8c52ff" />
+  <circle cx="78" cy="90" r="3" fill="#4285f4" />
+  
+  <!-- Pulse animation for AI effect -->
+  <circle cx="64" cy="64" r="62" stroke="white" stroke-width="2" fill="none" opacity="0.3">
+    <animate attributeName="r" values="62;65;62" dur="2s" repeatCount="indefinite" />
+    <animate attributeName="opacity" values="0.3;0.1;0.3" dur="2s" repeatCount="indefinite" />
+  </circle>
+</svg>
