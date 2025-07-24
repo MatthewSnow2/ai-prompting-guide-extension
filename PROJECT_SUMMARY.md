@@ -9,7 +9,7 @@ The goal is to streamline user workflows with LLMs by supplying tailored prompt 
 ✔ Complete **extension scaffold** with manifest, icons, folder structure  
 ✔ **Draggable / resizable chat-style UI** injected via content script  
 ✔ **Popup window** for quick actions & settings  
-✔ **10 predefined specialists** and **6 model categories** loaded from JSON  
+✔ **10 predefined specialists** (Research & Analysis, AI Solution Definition, Workflow Automation Design, Prompt Engineering, Conversational/Voice Agents, SaaS Product Planning, Website Creation, Client Outreach Messaging, Data Analysis Support, Documentation Writing) and **6 model categories** loaded from JSON  
 ✔ **Background service-worker** for data, storage, commands  
 ✔ **Local persistence** of size, position, specialist, model, notes & rules  
 ✔ **Keyboard shortcuts** (`Alt+P`, `Ctrl+Shift+P`)  

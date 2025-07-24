@@ -7,7 +7,7 @@ An intelligent, specialist-driven prompting advisor and workflow assistant for a
 ## 1. Project Overview & Purpose
 AI Prompting Guide is a Chrome extension that:
 * Embeds a chat-style window on any webpage  
-* Offers tailored advice from 10 domain specialists (marketing, software, data, etc.)  
+* Offers tailored advice from 10 domain specialists (research & analysis, AI solution definition, workflow automation, prompt engineering, voice agents, SaaS planning, website creation, outreach messaging, data-analysis support, documentation writing)  
 * Provides model-aware suggestions for Claude, GPT-4o, Gemini, and more  
 * Lets you store personal notes and custom rules for consistent, high-quality outputs  
 
@@ -29,7 +29,7 @@ Its goal is to shorten the “prompt → iterate → success” loop when intera
 
 | Category | Highlights |
 |----------|------------|
-| Specialist Selection | 10 pre-defined specialists, each with welcome prompt, notes, rules & advice. |
+| Specialist Selection | 10 pre-defined specialists (Research & Analysis, AI Solution Definition, Workflow Automation Design, Prompt Engineering, Conversational/Voice Agents, SaaS Product Planning, Website Creation, Client Outreach Messaging, Data Analysis Support, Documentation Writing) — each with welcome prompt, notes, rules & advice. |
 | Model-Aware Advice | Claude, OpenAI, Google, Thinking, Standard & Generic categories. |
 | Custom Rules Engine | Per-specialist or global rules, editable in-app. |
 | Intelligent Suggestions | Prompting techniques, next steps, common patterns, pitfalls to avoid. |
