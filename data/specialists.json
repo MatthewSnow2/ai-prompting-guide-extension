@@ -4,13 +4,39 @@
       "id": "research-analysis",
       "name": "Research & Analysis",
       "description": "Background studies, competitor research, insights extraction",
-      "welcomeMessage": "I am your Research & Analysis specialist. What topic or dataset do you need insights on today?",
-      "placeholderText": "Describe your research goal (e.g., “Help me outline competitive landscape for AI talent platforms”)…",
+      "welcomeMessage": "🔬 Research & Analysis Coach activated! I'll guide you through a 7-step process to conduct focused, actionable market and technology research. \n\nCurrent Step: [1/7] Define Research Scope & Questions\nNext: Click “Start Step 1” or ask me “What should I research?” to begin.",
+      "placeholderText": "Tell me the topic you’d like to research or click “Start Step 1” to begin the workflow…",
       "icon": "🔍",
-      "defaultPromptingTechniques": [],
-      "commonPatterns": [],
-      "pitfallAvoidance": [],
-      "outputOptimization": []
+      "defaultPromptingTechniques": [
+        { "step": 1, "title": "Define Research Scope & Questions", "description": "Establish research parameters and 5-7 key questions", "tools": "ChatGPT, Claude", "output": "Research brief" },
+        { "step": 2, "title": "Gather Raw Data", "description": "Collect information from web sources & APIs", "tools": "Python scraper, Perplexity AI, web APIs", "output": "Raw textual data" },
+        { "step": 3, "title": "Summarize & Extract Key Insights", "description": "Process and structure collected information", "tools": "ChatGPT, Claude", "output": "Structured summaries" },
+        { "step": 4, "title": "Analyze Competitors & Market Landscape", "description": "Evaluate competitive environment and positioning", "tools": "ChatGPT, data-analysis tools", "output": "SWOT analysis" },
+        { "step": 5, "title": "Identify Market Gaps & Opportunities", "description": "Discover unmet needs and potential AI solutions", "tools": "ChatGPT", "output": "Prioritized opportunity list" },
+        { "step": 6, "title": "Validate Findings with Data & Visualization", "description": "Support insights with quantitative analysis & charts", "tools": "Python pandas, visualization libs", "output": "Data-backed insights & visuals" },
+        { "step": 7, "title": "Compile Final Research Report", "description": "Create comprehensive professional document", "tools": "ChatGPT, Google Docs / Notion", "output": "Final research report" }
+      ],
+      "commonPatterns": [
+        { "step": 1, "promptTemplate": "I want to conduct research on **[topic]**. Please help me: 1) Define 5-7 clear research questions covering critical aspects, 2) Outline scope (focus/exclude), 3) Suggest data types & sources, 4) Recommend report format & key sections. Provide structured headings." },
+        { "step": 2, "promptTemplate": "Perplexity: Search the internet for latest developments on **[topic]**. Provide key facts & recent news (last 2 yrs), bullet summaries with source URLs, info on relevant startups, technologies & market shifts." },
+        { "step": 3, "promptTemplate": "Summarize this content emphasizing: industry challenges, current AI solutions & impact, opportunities/unmet needs, key statistics or data points. Use headings + bullets. Text: [data]" },
+        { "step": 4, "promptTemplate": "Analyze competitor **[name]**. Provide SWOT (Strengths, Weaknesses, Opportunities, Threats), market positioning & unique selling points, areas of vulnerability. Data: [competitor info]" },
+        { "step": 5, "promptTemplate": "Based on competitor analysis & trends, list 3-5 unmet needs/gaps for AI solutions in [industry]. Explain gaps, suggest AI solutions, prioritise by impact & feasibility." },
+        { "step": 6, "promptTemplate": "Analyze dataset representing [description]. Calculate growth rate & inflection points, create visualization of trends, highlight anomalies or patterns." },
+        { "step": 7, "promptTemplate": "Write a comprehensive research report on [topic] including: executive summary, market overview & trends, competitor SWOTs, identified gaps & AI opportunities, data insights & visualizations. Use professional headings & bullets." }
+      ],
+      "pitfallAvoidance": [
+        "If user skips steps remind: “Each step builds on the previous; let’s finish Step [X] first for stronger results.”",
+        "When inputs are vague, prompt user to narrow scope or clarify data sources.",
+        "Alert user if raw data volume is too small for reliable insights; suggest additional sources.",
+        "Warn when attempting to analyse competitors without sufficient information gathered in Step 2."
+      ],
+      "outputOptimization": [
+        "After Step 7, display a checklist of deliverables (brief, raw data archive, summaries, SWOTs, opportunity list, visuals, final report).",
+        "Suggest peer review or SME validation before finalizing report.",
+        "Offer export options (Google Docs link, Markdown file, Notion import).",
+        "Encourage iterating prompts in Steps 3-5 to refine insights and improve clarity."
+      ]
     },
     {
       "id": "ai-solution-definition",

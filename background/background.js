@@ -367,6 +367,93 @@ function getApplicableRules(specialistId) {
  * This will be replaced with actual AI-driven content in the future
  */
 function generatePlaceholderResponse(specialist, model, userMessage, rules) {
+  /* ------------------------------------------------------------------
+   * SPECIAL HANDLING: Research & Analysis Workflow
+   * ------------------------------------------------------------------
+   * If the selected specialist is the Research & Analysis coach and the
+   * specialist JSON contains a 7-step workflow (stored in
+   * defaultPromptingTechniques), we intercept the normal placeholder logic
+   * and deliver workflow-aware guidance.
+   *
+   * NOTE:  This is **placeholder logic** that demonstrates how the workflow
+   * guidance will look.  It does not yet persist state between messages.
+   * ------------------------------------------------------------------ */
+  if (
+    specialist.id === 'research-analysis' &&
+    Array.isArray(specialist.defaultPromptingTechniques) &&
+    specialist.defaultPromptingTechniques.length === 7
+  ) {
+    const steps = specialist.defaultPromptingTechniques; // convenience
+    const lowerMsg = (userMessage || '').toLowerCase();
+
+    // 1) “Show all steps”
+    if (lowerMsg.includes('show all steps')) {
+      let html = `<strong>🔬 7-Step Research & Analysis Workflow</strong><br><br>`;
+      html += '<ol>';
+      steps.forEach(step => {
+        html += `<li><strong>Step ${step.step} – ${step.title}</strong>: ${step.description}</li>`;
+      });
+      html += '</ol>';
+      html +=
+        '<br>Type “Start Step 1”, “Next Step”, “Previous Step” or “Step X” to navigate.';
+      return html;
+    }
+
+    // 2) Detect explicit “step X” or “start step X”
+    const stepMatch = lowerMsg.match(/(?:start|step|go to|open)\\s+step\\s*(\\d)/);
+    if (stepMatch) {
+      const n = Number(stepMatch[1]);
+      const step = steps.find(s => s.step === n);
+      if (step) {
+        return renderStepHelp(step);
+      }
+    }
+
+    // 3) Friendly entry phrases e.g. “what should I research” or generic queries
+    if (
+      lowerMsg.includes('what should i research') ||
+      lowerMsg.includes('start') ||
+      lowerMsg.trim() === '?'
+    ) {
+      return renderStepHelp(steps[0]);
+    }
+
+    // 4) Fallback – generic workflow reminder
+    return (
+      '<strong>Need guidance?</strong><br>' +
+      'Type “Show all steps” to see the 7-step workflow or “Start Step 1” to begin.'
+    );
+
+    // --- helper ---
+    function renderStepHelp(step) {
+      // Find matching promptTemplate in commonPatterns array
+      let prompt = '';
+      if (Array.isArray(specialist.commonPatterns)) {
+        const pObj = specialist.commonPatterns.find(p => p.step === step.step);
+        if (pObj && pObj.promptTemplate) prompt = pObj.promptTemplate;
+      }
+
+      let html = `<strong>Step ${step.step}/${steps.length} – ${step.title}</strong><br>`;
+      html += `<em>${step.description}</em><br><br>`;
+      html += `<strong>Tools/Models:</strong> ${step.tools}<br>`;
+      html += `<strong>Expected Output:</strong> ${step.output}<br><br>`;
+
+      if (prompt) {
+        html += `<strong>Prompt Template:</strong><br><code>${prompt}</code><br><br>`;
+        html +=
+          'Replace placeholders (e.g. <code>[topic]</code>) with your specifics and send it to your LLM of choice.';
+      } else {
+        html +=
+          'Ask me for a prompt template or type “Next Step” when you are ready to continue.';
+      }
+      return html;
+    }
+  }
+
+  // ------------------------------------------------------------------
+  // DEFAULT PLACEHOLDER RESPONSE (all other specialists)
+  // ------------------------------------------------------------------
+
   // Extract keywords from user message
   const keywords = extractKeywords(userMessage);
   
