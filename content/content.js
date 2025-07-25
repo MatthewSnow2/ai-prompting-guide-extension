@@ -579,7 +579,7 @@ class AIPromptingGuide {
     const timeoutId = setTimeout(() => {
       if (!responded) {
         console.error('AI Prompting Guide: background response timed-out', requestPayload);
-        this.addAssistantMessage('⏱️ Sorry, the request is taking longer than expected. Please try again in a moment.');
+        this.addAssistantMessage('[TIMEOUT] Sorry, the request is taking longer than expected. Please try again in a moment.');
       }
     }, TIMEOUT_MS);
 
@@ -591,7 +591,7 @@ class AIPromptingGuide {
         // Catch low-level messaging errors
         if (chrome.runtime.lastError) {
           console.error('AI Prompting Guide: runtime messaging error', chrome.runtime.lastError);
-          this.addAssistantMessage('⚠️ Unable to communicate with the extension background process. Please reload the extension and try again.');
+          this.addAssistantMessage('[ERROR] Unable to communicate with the extension background process. Please reload the extension and try again.');
           return;
         }
 
@@ -604,7 +604,7 @@ class AIPromptingGuide {
         // Background script returned an explicit error
         if (response && response.error) {
           console.error('AI Prompting Guide: background error', response.error);
-          this.addAssistantMessage(`⚠️ ${response.error}`);
+          this.addAssistantMessage(`[ERROR] ${response.error}`);
           return;
         }
 
@@ -616,7 +616,7 @@ class AIPromptingGuide {
       responded = true;
       clearTimeout(timeoutId);
       console.error('AI Prompting Guide: sendMessage threw an exception', err);
-      this.addAssistantMessage('⚠️ A critical error occurred while sending your request. Please refresh the page or reload the extension.');
+      this.addAssistantMessage('[ERROR] A critical error occurred while sending your request. Please refresh the page or reload the extension.');
     }
   }
 
