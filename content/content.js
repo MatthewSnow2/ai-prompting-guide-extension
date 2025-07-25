@@ -566,18 +566,58 @@ class AIPromptingGuide {
     }
     
     // Request response from background script
-    chrome.runtime.sendMessage({
+    const requestPayload = {
       action: 'generateResponse',
       specialistId: this.currentSpecialist,
       modelId: this.currentModel,
       message: userMessage
-    }, (response) => {
-      if (response && response.message) {
-        this.addAssistantMessage(response.message);
-      } else {
-        this.addAssistantMessage('I apologize, but I was unable to generate a response. Please try again.');
+    };
+
+    const TIMEOUT_MS = 8000; // 8-second safety timeout
+    let responded = false;
+
+    const timeoutId = setTimeout(() => {
+      if (!responded) {
+        console.error('AI Prompting Guide: background response timed-out', requestPayload);
+        this.addAssistantMessage('⏱️ Sorry, the request is taking longer than expected. Please try again in a moment.');
       }
-    });
+    }, TIMEOUT_MS);
+
+    try {
+      chrome.runtime.sendMessage(requestPayload, (response) => {
+        responded = true;
+        clearTimeout(timeoutId);
+
+        // Catch low-level messaging errors
+        if (chrome.runtime.lastError) {
+          console.error('AI Prompting Guide: runtime messaging error', chrome.runtime.lastError);
+          this.addAssistantMessage('⚠️ Unable to communicate with the extension background process. Please reload the extension and try again.');
+          return;
+        }
+
+        // Normal success path
+        if (response && response.message) {
+          this.addAssistantMessage(response.message);
+          return;
+        }
+
+        // Background script returned an explicit error
+        if (response && response.error) {
+          console.error('AI Prompting Guide: background error', response.error);
+          this.addAssistantMessage(`⚠️ ${response.error}`);
+          return;
+        }
+
+        // Fallback: unknown shape
+        console.warn('AI Prompting Guide: unexpected response format', response);
+        this.addAssistantMessage('I apologize, but I was unable to generate a response due to an unexpected issue. Please try again.');
+      });
+    } catch (err) {
+      responded = true;
+      clearTimeout(timeoutId);
+      console.error('AI Prompting Guide: sendMessage threw an exception', err);
+      this.addAssistantMessage('⚠️ A critical error occurred while sending your request. Please refresh the page or reload the extension.');
+    }
   }
 
   /**

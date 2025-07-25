@@ -400,11 +400,13 @@ function generatePlaceholderResponse(specialist, model, userMessage, rules) {
     }
 
     // 2) Detect explicit “step X” or “start step X”
-    const stepMatch = lowerMsg.match(/(?:start|step|go to|open)\\s+step\\s*(\\d)/);
+    //    (original pattern had over-escaped backslashes which broke matching)
+    const stepMatch = lowerMsg.match(/(?:start|step|go to|open)\s+step\s*(\d)/);
     if (stepMatch) {
       const n = Number(stepMatch[1]);
       const step = steps.find(s => s.step === n);
       if (step) {
+        console.debug('AI Prompting Guide: Rendering help for workflow step', step.step);
         return renderStepHelp(step);
       }
     }
