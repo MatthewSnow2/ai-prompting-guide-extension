@@ -21,6 +21,12 @@ class AIPromptingGuide {
     this.container = null;
     this.initialized = false;
 
+    // Workflow state tracking
+    this.currentStep = null;
+    this.workflowActive = false;
+    this.awaitingConfirmation = false;
+    this.specialistData = null;
+
     // Bind methods to this context
     this.initialize = this.initialize.bind(this);
     this.injectInterface = this.injectInterface.bind(this);
@@ -43,6 +49,11 @@ class AIPromptingGuide {
     this.saveCustomRules = this.saveCustomRules.bind(this);
     this.closeInterface = this.closeInterface.bind(this);
     this.clearMessages = this.clearMessages.bind(this);
+    this.startWorkflow = this.startWorkflow.bind(this);
+    this.moveToNextStep = this.moveToNextStep.bind(this);
+    this.displayCurrentStep = this.displayCurrentStep.bind(this);
+    this.createYesNoButtons = this.createYesNoButtons.bind(this);
+    this.handleWorkflowResponse = this.handleWorkflowResponse.bind(this);
   }
 
   /**
@@ -343,6 +354,11 @@ class AIPromptingGuide {
 
     messagesContainer.innerHTML = '';
 
+    // Reset workflow state
+    this.currentStep = null;
+    this.workflowActive = false;
+    this.awaitingConfirmation = false;
+
     // If a specialist is selected, reload its welcome; otherwise generic
     if (this.currentSpecialist) {
       // Re-use existing helper to rebuild welcome / placeholder
@@ -548,6 +564,11 @@ class AIPromptingGuide {
   changeSpecialist(specialistId) {
     this.currentSpecialist = specialistId;
     
+    // Reset workflow state
+    this.currentStep = null;
+    this.workflowActive = false;
+    this.awaitingConfirmation = false;
+    
     // Request specialist details from background script
     chrome.runtime.sendMessage({ 
       action: 'getSpecialistDetails', 
@@ -555,27 +576,36 @@ class AIPromptingGuide {
     }, (response) => {
       if (response && response.specialist) {
         const specialist = response.specialist;
+        this.specialistData = specialist;
         
-        // Update welcome message
+        // Update messages container with specialist description
         const messagesContainer = document.getElementById('ai-prompting-guide-messages');
         if (messagesContainer) {
           messagesContainer.innerHTML = '';
           
-          const welcomeMessage = document.createElement('div');
-          welcomeMessage.className = 'ai-prompting-guide-message assistant';
-          welcomeMessage.innerHTML = specialist.welcomeMessage;
-          welcomeMessage.style.backgroundColor = '#f0f0f0';
-          welcomeMessage.style.padding = '10px';
-          welcomeMessage.style.borderRadius = '5px';
-          welcomeMessage.style.marginBottom = '10px';
+          // Create a brief description of the specialist
+          let description = '';
+          if (specialist.description) {
+            // Create a 2-3 sentence description based on the specialist's description
+            description = `<p><strong>${specialist.name}</strong> helps you with ${specialist.description.toLowerCase()}. 
+                          This specialist can guide you through a structured workflow to achieve the best results. 
+                          Would you like to begin working with this specialist?</p>`;
+          } else {
+            description = `<p>Would you like to begin working with the ${specialist.name} specialist?</p>`;
+          }
           
-          messagesContainer.appendChild(welcomeMessage);
+          // Add the description and Yes/No buttons
+          this.addAssistantMessage(description);
+          this.createYesNoButtons();
+          
+          // Mark that we're awaiting confirmation
+          this.awaitingConfirmation = true;
         }
         
         // Update input placeholder
         const textInput = document.getElementById('ai-prompting-guide-input');
         if (textInput) {
-          textInput.placeholder = specialist.placeholderText;
+          textInput.placeholder = specialist.placeholderText || 'Type your question here...';
         }
         
         // Load specialist-specific notes
@@ -584,6 +614,148 @@ class AIPromptingGuide {
     });
     
     this.saveUserPreferences();
+  }
+
+  /**
+   * Create Yes/No buttons for user confirmation
+   */
+  createYesNoButtons() {
+    const messagesContainer = document.getElementById('ai-prompting-guide-messages');
+    if (!messagesContainer) return;
+    
+    const buttonContainer = document.createElement('div');
+    buttonContainer.style.display = 'flex';
+    buttonContainer.style.justifyContent = 'center';
+    buttonContainer.style.gap = '10px';
+    buttonContainer.style.marginTop = '10px';
+    
+    const yesButton = document.createElement('button');
+    yesButton.textContent = 'Yes';
+    yesButton.style.padding = '8px 20px';
+    yesButton.style.backgroundColor = '#4285f4';
+    yesButton.style.color = 'white';
+    yesButton.style.border = 'none';
+    yesButton.style.borderRadius = '4px';
+    yesButton.style.cursor = 'pointer';
+    yesButton.onclick = () => this.handleWorkflowResponse('yes');
+    
+    const noButton = document.createElement('button');
+    noButton.textContent = 'No';
+    noButton.style.padding = '8px 20px';
+    noButton.style.backgroundColor = '#f1f1f1';
+    noButton.style.color = '#333';
+    noButton.style.border = '1px solid #ccc';
+    noButton.style.borderRadius = '4px';
+    noButton.style.cursor = 'pointer';
+    noButton.onclick = () => this.handleWorkflowResponse('no');
+    
+    buttonContainer.appendChild(yesButton);
+    buttonContainer.appendChild(noButton);
+    
+    const messageElement = document.createElement('div');
+    messageElement.className = 'ai-prompting-guide-message assistant';
+    messageElement.style.backgroundColor = '#f0f0f0';
+    messageElement.style.padding = '10px';
+    messageElement.style.borderRadius = '5px';
+    messageElement.style.marginBottom = '10px';
+    messageElement.appendChild(buttonContainer);
+    
+    messagesContainer.appendChild(messageElement);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+  }
+
+  /**
+   * Handle user response to workflow confirmation
+   */
+  handleWorkflowResponse(response) {
+    if (!this.awaitingConfirmation) return;
+    
+    this.awaitingConfirmation = false;
+    
+    if (response === 'yes') {
+      // User confirmed, start the workflow
+      this.addAssistantMessage(`Great! Let's get started with the ${this.specialistData?.name || 'selected'} workflow.`);
+      this.startWorkflow();
+    } else {
+      // User declined, show a message
+      this.addAssistantMessage('No problem. Feel free to select another specialist or ask any questions.');
+    }
+  }
+
+  /**
+   * Start the specialist workflow
+   */
+  startWorkflow() {
+    if (!this.specialistData) return;
+    
+    this.workflowActive = true;
+    this.currentStep = 1;
+    
+    // Display the first step
+    this.displayCurrentStep();
+  }
+
+  /**
+   * Move to the next step in the workflow
+   */
+  moveToNextStep() {
+    if (!this.workflowActive || !this.specialistData) return;
+    
+    const totalSteps = this.specialistData.defaultPromptingTechniques?.length || 0;
+    
+    if (this.currentStep < totalSteps) {
+      this.currentStep++;
+      this.displayCurrentStep();
+    } else {
+      // Workflow complete
+      this.addAssistantMessage('Congratulations! You have completed all steps in this workflow.');
+      this.workflowActive = false;
+      this.currentStep = null;
+    }
+  }
+
+  /**
+   * Display the current step in the workflow
+   */
+  displayCurrentStep() {
+    if (!this.workflowActive || !this.specialistData || !this.currentStep) return;
+    
+    const steps = this.specialistData.defaultPromptingTechniques || [];
+    if (steps.length === 0) {
+      this.addAssistantMessage('This specialist does not have a defined workflow.');
+      this.workflowActive = false;
+      return;
+    }
+    
+    // Find the current step
+    const step = steps.find(s => s.step === this.currentStep);
+    if (!step) {
+      this.addAssistantMessage('Unable to find the current step in the workflow.');
+      return;
+    }
+    
+    // Find the prompt template for this step
+    let promptTemplate = '';
+    if (this.specialistData.commonPatterns) {
+      const pattern = this.specialistData.commonPatterns.find(p => p.step === this.currentStep);
+      if (pattern && pattern.promptTemplate) {
+        promptTemplate = pattern.promptTemplate;
+      }
+    }
+    
+    // Build the step display
+    let html = `<strong>Step ${step.step}/${steps.length} – ${step.title}</strong><br>`;
+    html += `<em>${step.description}</em><br><br>`;
+    html += `<strong>Expected Output:</strong> ${step.output}<br><br>`;
+    
+    if (promptTemplate) {
+      html += `<strong>Prompt Template:</strong><br><code>${promptTemplate}</code><br><br>`;
+      html += 'Replace placeholders (e.g. <code>[topic]</code>) with your specifics.';
+    } else {
+      html += 'Please provide details for this step.';
+    }
+    
+    this.addAssistantMessage(html);
   }
 
   /**
@@ -633,12 +805,55 @@ class AIPromptingGuide {
       return;
     }
     
+    // Check if we're waiting for confirmation
+    if (this.awaitingConfirmation) {
+      // Check if the user message is a yes/no response
+      const lowerMsg = userMessage.toLowerCase();
+      if (lowerMsg === 'yes' || lowerMsg === 'y') {
+        this.handleWorkflowResponse('yes');
+        return;
+      } else if (lowerMsg === 'no' || lowerMsg === 'n') {
+        this.handleWorkflowResponse('no');
+        return;
+      }
+    }
+    
+    // Check for workflow navigation commands
+    if (this.workflowActive) {
+      const lowerMsg = userMessage.toLowerCase();
+      
+      // Check for "next step" command
+      if (lowerMsg === 'next step' || lowerMsg === 'next') {
+        this.moveToNextStep();
+        return;
+      }
+      
+      // Check for specific step navigation
+      const stepMatch = lowerMsg.match(/(?:start|step|go to|open)\s+step\s*(\d)/);
+      if (stepMatch) {
+        const stepNum = parseInt(stepMatch[1], 10);
+        if (stepNum > 0 && stepNum <= (this.specialistData?.defaultPromptingTechniques?.length || 0)) {
+          this.currentStep = stepNum;
+          this.displayCurrentStep();
+          return;
+        }
+      }
+      
+      // Check for "show all steps" command
+      if (lowerMsg === 'show all steps' || lowerMsg === 'show steps') {
+        this.showAllSteps();
+        return;
+      }
+    }
+    
     // Request response from background script
     const requestPayload = {
       action: 'generateResponse',
       specialistId: this.currentSpecialist,
       modelId: this.currentModel,
-      message: userMessage
+      message: userMessage,
+      workflowActive: this.workflowActive,
+      currentStep: this.currentStep
     };
 
     const TIMEOUT_MS = 8000; // 8-second safety timeout
@@ -666,6 +881,14 @@ class AIPromptingGuide {
         // Normal success path
         if (response && response.message) {
           this.addAssistantMessage(response.message);
+          
+          // If the workflow is active, provide a "Next Step" prompt
+          if (this.workflowActive) {
+            const steps = this.specialistData?.defaultPromptingTechniques || [];
+            if (this.currentStep < steps.length) {
+              this.addAssistantMessage('When you\'re ready, type "Next Step" to continue to the next step.');
+            }
+          }
           return;
         }
 
@@ -686,6 +909,29 @@ class AIPromptingGuide {
       console.error('AI Prompting Guide: sendMessage threw an exception', err);
       this.addAssistantMessage('[ERROR] A critical error occurred while sending your request. Please refresh the page or reload the extension.');
     }
+  }
+
+  /**
+   * Show all steps in the current workflow
+   */
+  showAllSteps() {
+    if (!this.specialistData) return;
+    
+    const steps = this.specialistData.defaultPromptingTechniques || [];
+    if (steps.length === 0) {
+      this.addAssistantMessage('This specialist does not have a defined workflow.');
+      return;
+    }
+    
+    let html = `<strong>${this.specialistData.icon || '🔍'} ${this.specialistData.name} Workflow</strong><br><br>`;
+    html += '<ol>';
+    steps.forEach(step => {
+      html += `<li><strong>${step.title}</strong>: ${step.description}</li>`;
+    });
+    html += '</ol>';
+    html += '<br>Type "Start Step 1", "Next Step", "Previous Step" or "Step X" to navigate.';
+    
+    this.addAssistantMessage(html);
   }
 
   /**
