@@ -41,6 +41,7 @@ class AIPromptingGuide {
     this.handleMessage = this.handleMessage.bind(this);
     this.saveUserNotes = this.saveUserNotes.bind(this);
     this.saveCustomRules = this.saveCustomRules.bind(this);
+    this.clearMessages = this.clearMessages.bind(this);
   }
 
   /**
@@ -86,6 +87,7 @@ class AIPromptingGuide {
 
   /**
    * Handle keyboard shortcuts
+   * Alt + P  →  Toggle AI Prompting Guide visibility
    */
   handleKeyboardShortcut(event) {
     // Alt+P to toggle interface visibility
@@ -239,6 +241,27 @@ class AIPromptingGuide {
     
     messagesContainer.appendChild(welcomeMessage);
     
+    // ---- CLEAR CHAT STRIP -----------------------------------------
+    const clearStrip = document.createElement('div');
+    clearStrip.style.textAlign = 'center';
+    clearStrip.style.borderTop = '1px solid #eee';
+    clearStrip.style.borderBottom = '1px solid #eee';
+    clearStrip.style.padding = '4px 0';
+    clearStrip.style.backgroundColor = '#fafafa';
+
+    const clearBtn = document.createElement('button');
+    clearBtn.textContent = 'Clear Chat';
+    clearBtn.style.fontSize = '12px';
+    clearBtn.style.padding = '2px 8px';
+    clearBtn.style.backgroundColor = '#e0e0e0';
+    clearBtn.style.border = '1px solid #ccc';
+    clearBtn.style.borderRadius = '4px';
+    clearBtn.style.cursor = 'pointer';
+    clearBtn.onclick = () => this.clearMessages();
+
+    clearStrip.appendChild(clearBtn);
+    // ---------------------------------------------------------------
+
     // Create input area
     const inputArea = document.createElement('div');
     inputArea.className = 'ai-prompting-guide-input';
@@ -273,6 +296,7 @@ class AIPromptingGuide {
     inputArea.appendChild(sendButton);
     
     chatArea.appendChild(messagesContainer);
+    chatArea.appendChild(clearStrip);   // << new clear button strip
     chatArea.appendChild(inputArea);
     
     content.appendChild(selectionArea);
@@ -310,7 +334,32 @@ class AIPromptingGuide {
   }
 
   /**
-   * Toggle interface visibility
+   * Clear all chat messages and restore welcome bubble
+   */
+  clearMessages() {
+    const messagesContainer = document.getElementById('ai-prompting-guide-messages');
+    if (!messagesContainer) return;
+
+    messagesContainer.innerHTML = '';
+
+    // If a specialist is selected, reload its welcome; otherwise generic
+    if (this.currentSpecialist) {
+      // Re-use existing helper to rebuild welcome / placeholder
+      this.changeSpecialist(this.currentSpecialist);
+    } else {
+      const welcome = document.createElement('div');
+      welcome.className = 'ai-prompting-guide-message assistant';
+      welcome.innerHTML = 'Welcome to AI Prompting Guide! Please select a specialist to get started.';
+      welcome.style.backgroundColor = '#f0f0f0';
+      welcome.style.padding = '10px';
+      welcome.style.borderRadius = '5px';
+      welcome.style.marginBottom = '10px';
+      messagesContainer.appendChild(welcome);
+    }
+  }
+
+  /**
+   * Toggle interface visibility (show / hide)
    */
   toggleInterface() {
     if (!this.container) {
