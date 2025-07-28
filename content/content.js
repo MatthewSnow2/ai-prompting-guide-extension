@@ -493,11 +493,22 @@ class AIPromptingGuide {
    */
   async loadSpecialists() {
     try {
+      console.log('[AIPG] loadSpecialists() called');
       // Request specialists data from background script
       chrome.runtime.sendMessage({ action: 'getSpecialists' }, (response) => {
+        if (chrome.runtime.lastError) {
+          console.error('[AIPG] loadSpecialists runtime error', chrome.runtime.lastError);
+          return;
+        }
+
+        console.log('[AIPG] loadSpecialists response:', response);
+
         if (response && response.specialists) {
           const select = document.getElementById('ai-prompting-guide-specialist');
-          if (!select) return;
+          if (!select) {
+            console.warn('[AIPG] Specialist <select> not found in DOM');
+            return;
+          }
           
           // Clear existing options
           select.innerHTML = '';
@@ -509,6 +520,14 @@ class AIPromptingGuide {
             option.textContent = `${specialist.icon} ${specialist.name}`;
             select.appendChild(option);
           });
+
+          // Fallback if nothing was added
+          if (select.options.length === 0) {
+            const opt = document.createElement('option');
+            opt.textContent = 'No specialists available';
+            opt.disabled = true;
+            select.appendChild(opt);
+          }
           
           // Set selected specialist if available
           if (this.currentSpecialist) {
@@ -528,11 +547,22 @@ class AIPromptingGuide {
    */
   async loadModels() {
     try {
+      console.log('[AIPG] loadModels() called');
       // Request models data from background script
       chrome.runtime.sendMessage({ action: 'getModels' }, (response) => {
+        if (chrome.runtime.lastError) {
+          console.error('[AIPG] loadModels runtime error', chrome.runtime.lastError);
+          return;
+        }
+
+        console.log('[AIPG] loadModels response:', response);
+
         if (response && response.models) {
           const select = document.getElementById('ai-prompting-guide-model');
-          if (!select) return;
+          if (!select) {
+            console.warn('[AIPG] Model <select> not found in DOM');
+            return;
+          }
           
           // Clear existing options
           select.innerHTML = '';
@@ -544,6 +574,14 @@ class AIPromptingGuide {
             option.textContent = `${model.icon} ${model.name}`;
             select.appendChild(option);
           });
+
+          // Fallback if nothing was added
+          if (select.options.length === 0) {
+            const opt = document.createElement('option');
+            opt.textContent = 'No models available';
+            opt.disabled = true;
+            select.appendChild(opt);
+          }
           
           // Set selected model if available
           if (this.currentModel) {
