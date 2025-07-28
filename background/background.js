@@ -368,9 +368,8 @@ function getApplicableRules(specialistId) {
  */
 function generatePlaceholderResponse(specialist, model, userMessage, rules) {
   /* ------------------------------------------------------------------
-  // ------------------------------------------------------------------
-  // DEFAULT PLACEHOLDER RESPONSE
-  // ------------------------------------------------------------------
+   * DEFAULT PLACEHOLDER RESPONSE
+   * ------------------------------------------------------------------ */
   // Extract keywords from user message
   const keywords = extractKeywords(userMessage);
   
