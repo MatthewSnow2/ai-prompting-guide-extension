@@ -41,6 +41,7 @@ class AIPromptingGuide {
     this.handleMessage = this.handleMessage.bind(this);
     this.saveUserNotes = this.saveUserNotes.bind(this);
     this.saveCustomRules = this.saveCustomRules.bind(this);
+    this.closeInterface = this.closeInterface.bind(this);
     this.clearMessages = this.clearMessages.bind(this);
   }
 
@@ -159,7 +160,7 @@ class AIPromptingGuide {
     closeButton.style.border = 'none';
     closeButton.style.cursor = 'pointer';
     closeButton.title = 'Close';
-    closeButton.onclick = () => this.toggleInterface();
+    closeButton.onclick = () => this.closeInterface();
     
     controls.appendChild(settingsButton);
     controls.appendChild(closeButton);
@@ -371,6 +372,24 @@ class AIPromptingGuide {
     }
     
     // Save visibility state
+    this.saveUserPreferences();
+  }
+
+  /**
+   * Completely close and remove the interface from the DOM.
+   * Users can reopen it via the toolbar icon or Alt + P shortcut.
+   */
+  closeInterface() {
+    if (!this.container) return;
+
+    // Remove DOM node
+    this.container.remove();
+    this.container = null;
+
+    // Update state
+    this.isVisible = false;
+
+    // Persist state so it remains closed on refresh
     this.saveUserPreferences();
   }
 
