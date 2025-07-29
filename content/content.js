@@ -27,6 +27,14 @@ class AIPromptingGuide {
     this.awaitingConfirmation = false;
     this.specialistData = null;
 
+    // Error handling and retry state
+    this.retryCount = 0;
+    this.maxRetries = 3;
+    this.backoffTime = 500; // Start with 500ms backoff
+    this.pendingRetries = {};
+    this.fallbackSpecialists = null;
+    this.fallbackModels = null;
+
     // Bind methods to this context
     this.initialize = this.initialize.bind(this);
     this.injectInterface = this.injectInterface.bind(this);
@@ -54,6 +62,310 @@ class AIPromptingGuide {
     this.displayCurrentStep = this.displayCurrentStep.bind(this);
     this.createYesNoButtons = this.createYesNoButtons.bind(this);
     this.handleWorkflowResponse = this.handleWorkflowResponse.bind(this);
+    
+    // New error handling methods
+    this.isExtensionContextValid = this.isExtensionContextValid.bind(this);
+    this.sendMessageWithRetry = this.sendMessageWithRetry.bind(this);
+    this.loadFallbackData = this.loadFallbackData.bind(this);
+    this.retryWithBackoff = this.retryWithBackoff.bind(this);
+  }
+
+  /**
+   * Check if the extension context is valid for messaging
+   * @returns {boolean} True if the context is valid
+   */
+  isExtensionContextValid() {
+    try {
+      // Check if chrome.runtime is defined and has an id
+      if (!chrome || !chrome.runtime || !chrome.runtime.id) {
+        console.warn('[AIPG] Extension context is invalid - chrome.runtime missing or no ID');
+        return false;
+      }
+      
+      // Check if we can access chrome.runtime.getURL which fails when context is invalid
+      const testUrl = chrome.runtime.getURL('');
+      if (!testUrl) {
+        console.warn('[AIPG] Extension context is invalid - cannot get extension URL');
+        return false;
+      }
+      
+      return true;
+    } catch (err) {
+      console.error('[AIPG] Extension context check failed:', err);
+      return false;
+    }
+  }
+
+  /**
+   * Send a message with retry logic
+   * @param {Object} message - The message to send
+   * @param {Function} callback - Callback function for the response
+   * @param {string} operationName - Name of operation for logging
+   * @param {Function} fallbackFn - Function to call if all retries fail
+   */
+  sendMessageWithRetry(message, callback, operationName, fallbackFn) {
+    const messageId = `${operationName}-${Date.now()}`;
+    let retryCount = 0;
+    const maxRetries = this.maxRetries;
+    let backoffTime = this.backoffTime;
+    
+    console.log(`[AIPG] Sending message for ${operationName}:`, message);
+    
+    const attemptSend = () => {
+      // Check if extension context is valid before sending
+      if (!this.isExtensionContextValid()) {
+        console.error(`[AIPG] Cannot send message for ${operationName} - invalid extension context`);
+        if (fallbackFn) {
+          console.log(`[AIPG] Using fallback for ${operationName}`);
+          fallbackFn();
+        }
+        return;
+      }
+      
+      try {
+        chrome.runtime.sendMessage(message, (response) => {
+          // Check for runtime errors
+          if (chrome.runtime.lastError) {
+            const error = chrome.runtime.lastError;
+            console.error(`[AIPG] ${operationName} attempt ${retryCount + 1}/${maxRetries + 1} failed:`, error);
+            
+            // Retry with exponential backoff if we haven't hit max retries
+            if (retryCount < maxRetries) {
+              retryCount++;
+              const nextBackoff = backoffTime * Math.pow(1.5, retryCount);
+              console.log(`[AIPG] Retrying ${operationName} in ${nextBackoff}ms (attempt ${retryCount + 1}/${maxRetries + 1})`);
+              
+              setTimeout(attemptSend, nextBackoff);
+              return;
+            } else {
+              console.error(`[AIPG] ${operationName} failed after ${maxRetries + 1} attempts`);
+              if (fallbackFn) {
+                console.log(`[AIPG] Using fallback for ${operationName}`);
+                fallbackFn();
+              }
+              
+              // Call callback with error
+              if (callback) {
+                callback({ error: `Communication failed after ${maxRetries + 1} attempts` });
+              }
+            }
+            return;
+          }
+          
+          // Success path
+          console.log(`[AIPG] ${operationName} successful:`, response);
+          if (callback) {
+            callback(response);
+          }
+        });
+      } catch (err) {
+        console.error(`[AIPG] Exception in ${operationName}:`, err);
+        if (retryCount < maxRetries) {
+          retryCount++;
+          const nextBackoff = backoffTime * Math.pow(1.5, retryCount);
+          console.log(`[AIPG] Retrying ${operationName} in ${nextBackoff}ms (attempt ${retryCount + 1}/${maxRetries + 1})`);
+          
+          setTimeout(attemptSend, nextBackoff);
+        } else {
+          console.error(`[AIPG] ${operationName} failed after ${maxRetries + 1} attempts`);
+          if (fallbackFn) {
+            console.log(`[AIPG] Using fallback for ${operationName}`);
+            fallbackFn();
+          }
+          
+          // Call callback with error
+          if (callback) {
+            callback({ error: `Communication failed after ${maxRetries + 1} attempts: ${err.message}` });
+          }
+        }
+      }
+    };
+    
+    // Start the first attempt
+    attemptSend();
+  }
+
+  /**
+   * Load fallback data for specialists and models
+   */
+  async loadFallbackData() {
+    console.log('[AIPG] Loading fallback data');
+    
+    // Define minimal fallback specialists
+    this.fallbackSpecialists = [
+      {
+        id: 'research-analysis',
+        name: 'Research & Analysis',
+        description: 'Conducting research and analyzing information',
+        icon: '🔬',
+        welcomeMessage: 'I can help with research and analysis tasks.',
+        placeholderText: 'What would you like to research?',
+        defaultPromptingTechniques: [
+          {
+            step: 1,
+            title: 'Define Research Scope & Questions',
+            description: 'Clearly define what you want to research and specific questions to answer',
+            output: 'A clear research brief with main questions'
+          },
+          {
+            step: 2,
+            title: 'Information Gathering',
+            description: 'Collect relevant information from reliable sources',
+            output: 'Raw data and information from multiple sources'
+          },
+          {
+            step: 3,
+            title: 'Organize & Structure Data',
+            description: 'Organize collected information into logical categories',
+            output: 'Structured data ready for analysis'
+          },
+          {
+            step: 4,
+            title: 'Analysis & Patterns',
+            description: 'Analyze data to identify patterns, trends, and insights',
+            output: 'Key findings and patterns from the data'
+          },
+          {
+            step: 5,
+            title: 'Critical Evaluation',
+            description: 'Critically evaluate findings, considering limitations and biases',
+            output: 'Evaluated insights with context and limitations'
+          },
+          {
+            step: 6,
+            title: 'Synthesize Findings',
+            description: 'Combine insights into coherent conclusions',
+            output: 'Synthesized conclusions addressing research questions'
+          },
+          {
+            step: 7,
+            title: 'Recommendations & Next Steps',
+            description: 'Provide actionable recommendations based on findings',
+            output: 'Actionable recommendations and next steps'
+          }
+        ]
+      },
+      {
+        id: 'generic',
+        name: 'General Assistant',
+        description: 'General purpose assistance',
+        icon: '🧠',
+        welcomeMessage: 'I can help with various tasks.',
+        placeholderText: 'How can I help you today?'
+      }
+    ];
+    
+    // Define minimal fallback models
+    this.fallbackModels = [
+      {
+        id: 'gpt-4',
+        name: 'GPT-4',
+        description: 'Advanced language model with strong reasoning',
+        icon: '🧠'
+      },
+      {
+        id: 'claude',
+        name: 'Claude',
+        description: 'Helpful, harmless, and honest assistant',
+        icon: '🤖'
+      }
+    ];
+    
+    // Populate dropdowns with fallback data
+    this.populateSpecialistDropdown(this.fallbackSpecialists);
+    this.populateModelDropdown(this.fallbackModels);
+    
+    // Show fallback message to user
+    this.addAssistantMessage(
+      '<strong>⚠️ Notice:</strong> Unable to connect to extension background service. ' +
+      'Using limited offline mode with basic functionality. ' +
+      'Please try reloading the extension from the Extensions page.'
+    );
+  }
+
+  /**
+   * Populate specialist dropdown with provided data
+   */
+  populateSpecialistDropdown(specialists) {
+    const select = document.getElementById('ai-prompting-guide-specialist');
+    if (!select) {
+      console.warn('[AIPG] Specialist <select> not found in DOM');
+      return;
+    }
+    
+    // Clear existing options
+    select.innerHTML = '';
+    
+    // Add specialists as options
+    specialists.forEach(specialist => {
+      const option = document.createElement('option');
+      option.value = specialist.id;
+      option.textContent = `${specialist.icon} ${specialist.name}`;
+      select.appendChild(option);
+    });
+    
+    // Set selected specialist if available
+    if (this.currentSpecialist) {
+      select.value = this.currentSpecialist;
+    } else if (specialists.length > 0) {
+      this.specialistData = specialists[0];
+      this.currentSpecialist = specialists[0].id;
+      select.value = specialists[0].id;
+    }
+  }
+
+  /**
+   * Populate model dropdown with provided data
+   */
+  populateModelDropdown(models) {
+    const select = document.getElementById('ai-prompting-guide-model');
+    if (!select) {
+      console.warn('[AIPG] Model <select> not found in DOM');
+      return;
+    }
+    
+    // Clear existing options
+    select.innerHTML = '';
+    
+    // Add models as options
+    models.forEach(model => {
+      const option = document.createElement('option');
+      option.value = model.id;
+      option.textContent = `${model.icon} ${model.name}`;
+      select.appendChild(option);
+    });
+    
+    // Set selected model if available
+    if (this.currentModel) {
+      select.value = this.currentModel;
+    } else if (models.length > 0) {
+      this.currentModel = models[0].id;
+      select.value = models[0].id;
+    }
+  }
+
+  /**
+   * Retry an operation with exponential backoff
+   */
+  retryWithBackoff(operation, params, retryCount = 0) {
+    const maxRetries = this.maxRetries;
+    const backoffTime = this.backoffTime * Math.pow(1.5, retryCount);
+    
+    if (retryCount >= maxRetries) {
+      console.error(`[AIPG] Operation failed after ${maxRetries} retries`);
+      return;
+    }
+    
+    console.log(`[AIPG] Retrying operation in ${backoffTime}ms (attempt ${retryCount + 1}/${maxRetries})`);
+    
+    setTimeout(() => {
+      try {
+        operation(...params);
+      } catch (err) {
+        console.error('[AIPG] Retry attempt failed:', err);
+        this.retryWithBackoff(operation, params, retryCount + 1);
+      }
+    }, backoffTime);
   }
 
   /**
@@ -62,8 +374,20 @@ class AIPromptingGuide {
   async initialize() {
     if (this.initialized) return;
     
+    console.log('[AIPG] Initializing AI Prompting Guide');
+    
+    // Check if extension context is valid
+    if (!this.isExtensionContextValid()) {
+      console.error('[AIPG] Extension context is invalid during initialization');
+      // We'll continue anyway and handle errors in individual operations
+    }
+    
     // Set up message listener for communication with background script
-    chrome.runtime.onMessage.addListener(this.handleMessage);
+    try {
+      chrome.runtime.onMessage.addListener(this.handleMessage);
+    } catch (err) {
+      console.error('[AIPG] Failed to set up message listener:', err);
+    }
     
     // Add keyboard shortcut listener
     document.addEventListener('keydown', this.handleKeyboardShortcut);
@@ -72,12 +396,15 @@ class AIPromptingGuide {
     await this.loadUserPreferences();
     
     this.initialized = true;
+    console.log('[AIPG] Initialization complete');
   }
 
   /**
    * Handle messages from background script
    */
   handleMessage(message, sender, sendResponse) {
+    console.log('[AIPG] Received message:', message);
+    
     switch (message.action) {
       case 'toggleInterface':
         this.toggleInterface();
@@ -489,115 +816,127 @@ class AIPromptingGuide {
   }
 
   /**
-   * Load specialists from storage
+   * Load specialists from storage with enhanced error handling
    */
   async loadSpecialists() {
+    console.log('[AIPG] loadSpecialists() called');
+    
+    // Check if extension context is valid
+    if (!this.isExtensionContextValid()) {
+      console.warn('[AIPG] Extension context invalid during loadSpecialists, using fallback data');
+      if (this.fallbackSpecialists) {
+        this.populateSpecialistDropdown(this.fallbackSpecialists);
+      } else {
+        await this.loadFallbackData();
+      }
+      return;
+    }
+    
     try {
-      console.log('[AIPG] loadSpecialists() called');
-      // Request specialists data from background script
-      chrome.runtime.sendMessage({ action: 'getSpecialists' }, (response) => {
-        if (chrome.runtime.lastError) {
-          console.error('[AIPG] loadSpecialists runtime error', chrome.runtime.lastError);
-          return;
-        }
-
-        console.log('[AIPG] loadSpecialists response:', response);
-
-        if (response && response.specialists) {
-          const select = document.getElementById('ai-prompting-guide-specialist');
-          if (!select) {
-            console.warn('[AIPG] Specialist <select> not found in DOM');
-            return;
+      // Use the retry-enabled message sender
+      this.sendMessageWithRetry(
+        { action: 'getSpecialists' },
+        (response) => {
+          if (response && response.specialists && response.specialists.length > 0) {
+            console.log('[AIPG] Received specialists data:', response.specialists.length, 'specialists');
+            this.populateSpecialistDropdown(response.specialists);
+          } else if (response && response.error) {
+            console.error('[AIPG] Error loading specialists:', response.error);
+            this.addAssistantMessage(`<strong>Error:</strong> Failed to load specialists: ${response.error}`);
+            if (this.fallbackSpecialists) {
+              this.populateSpecialistDropdown(this.fallbackSpecialists);
+            }
+          } else {
+            console.warn('[AIPG] No specialists data in response');
+            if (this.fallbackSpecialists) {
+              this.populateSpecialistDropdown(this.fallbackSpecialists);
+            } else {
+              this.loadFallbackData();
+            }
           }
-          
-          // Clear existing options
-          select.innerHTML = '';
-          
-          // Add specialists as options
-          response.specialists.forEach(specialist => {
-            const option = document.createElement('option');
-            option.value = specialist.id;
-            option.textContent = `${specialist.icon} ${specialist.name}`;
-            select.appendChild(option);
-          });
-
-          // Fallback if nothing was added
-          if (select.options.length === 0) {
-            const opt = document.createElement('option');
-            opt.textContent = 'No specialists available';
-            opt.disabled = true;
-            select.appendChild(opt);
-          }
-          
-          // Set selected specialist if available
-          if (this.currentSpecialist) {
-            select.value = this.currentSpecialist;
-          } else if (response.specialists.length > 0) {
-            this.changeSpecialist(response.specialists[0].id);
+        },
+        'loadSpecialists',
+        async () => {
+          // Fallback function
+          if (!this.fallbackSpecialists) {
+            await this.loadFallbackData();
+          } else {
+            this.populateSpecialistDropdown(this.fallbackSpecialists);
           }
         }
-      });
+      );
     } catch (error) {
-      console.error('Failed to load specialists:', error);
+      console.error('[AIPG] Exception in loadSpecialists:', error);
+      if (!this.fallbackSpecialists) {
+        await this.loadFallbackData();
+      } else {
+        this.populateSpecialistDropdown(this.fallbackSpecialists);
+      }
     }
   }
 
   /**
-   * Load models from storage
+   * Load models from storage with enhanced error handling
    */
   async loadModels() {
+    console.log('[AIPG] loadModels() called');
+    
+    // Check if extension context is valid
+    if (!this.isExtensionContextValid()) {
+      console.warn('[AIPG] Extension context invalid during loadModels, using fallback data');
+      if (this.fallbackModels) {
+        this.populateModelDropdown(this.fallbackModels);
+      } else {
+        await this.loadFallbackData();
+      }
+      return;
+    }
+    
     try {
-      console.log('[AIPG] loadModels() called');
-      // Request models data from background script
-      chrome.runtime.sendMessage({ action: 'getModels' }, (response) => {
-        if (chrome.runtime.lastError) {
-          console.error('[AIPG] loadModels runtime error', chrome.runtime.lastError);
-          return;
-        }
-
-        console.log('[AIPG] loadModels response:', response);
-
-        if (response && response.models) {
-          const select = document.getElementById('ai-prompting-guide-model');
-          if (!select) {
-            console.warn('[AIPG] Model <select> not found in DOM');
-            return;
+      // Use the retry-enabled message sender
+      this.sendMessageWithRetry(
+        { action: 'getModels' },
+        (response) => {
+          if (response && response.models && response.models.length > 0) {
+            console.log('[AIPG] Received models data:', response.models.length, 'models');
+            this.populateModelDropdown(response.models);
+          } else if (response && response.error) {
+            console.error('[AIPG] Error loading models:', response.error);
+            this.addAssistantMessage(`<strong>Error:</strong> Failed to load models: ${response.error}`);
+            if (this.fallbackModels) {
+              this.populateModelDropdown(this.fallbackModels);
+            }
+          } else {
+            console.warn('[AIPG] No models data in response');
+            if (this.fallbackModels) {
+              this.populateModelDropdown(this.fallbackModels);
+            } else {
+              this.loadFallbackData();
+            }
           }
-          
-          // Clear existing options
-          select.innerHTML = '';
-          
-          // Add models as options
-          response.models.forEach(model => {
-            const option = document.createElement('option');
-            option.value = model.id;
-            option.textContent = `${model.icon} ${model.name}`;
-            select.appendChild(option);
-          });
-
-          // Fallback if nothing was added
-          if (select.options.length === 0) {
-            const opt = document.createElement('option');
-            opt.textContent = 'No models available';
-            opt.disabled = true;
-            select.appendChild(opt);
-          }
-          
-          // Set selected model if available
-          if (this.currentModel) {
-            select.value = this.currentModel;
-          } else if (response.models.length > 0) {
-            this.changeModel(response.models[0].id);
+        },
+        'loadModels',
+        async () => {
+          // Fallback function
+          if (!this.fallbackModels) {
+            await this.loadFallbackData();
+          } else {
+            this.populateModelDropdown(this.fallbackModels);
           }
         }
-      });
+      );
     } catch (error) {
-      console.error('Failed to load models:', error);
+      console.error('[AIPG] Exception in loadModels:', error);
+      if (!this.fallbackModels) {
+        await this.loadFallbackData();
+      } else {
+        this.populateModelDropdown(this.fallbackModels);
+      }
     }
   }
 
   /**
-   * Change the current specialist
+   * Change the current specialist with enhanced error handling
    */
   changeSpecialist(specialistId) {
     this.currentSpecialist = specialistId;
@@ -607,13 +946,13 @@ class AIPromptingGuide {
     this.workflowActive = false;
     this.awaitingConfirmation = false;
     
-    // Request specialist details from background script
-    chrome.runtime.sendMessage({ 
-      action: 'getSpecialistDetails', 
-      specialistId 
-    }, (response) => {
-      if (response && response.specialist) {
-        const specialist = response.specialist;
+    console.log('[AIPG] Changing specialist to:', specialistId);
+    
+    // Check if we already have fallback data for this specialist
+    if (!this.isExtensionContextValid() && this.fallbackSpecialists) {
+      const specialist = this.fallbackSpecialists.find(s => s.id === specialistId);
+      if (specialist) {
+        console.log('[AIPG] Using fallback data for specialist:', specialistId);
         this.specialistData = specialist;
         
         // Update messages container with specialist description
@@ -624,7 +963,6 @@ class AIPromptingGuide {
           // Create a brief description of the specialist
           let description = '';
           if (specialist.description) {
-            // Create a 2-3 sentence description based on the specialist's description
             description = `<p><strong>${specialist.name}</strong> helps you with ${specialist.description.toLowerCase()}. 
                           This specialist can guide you through a structured workflow to achieve the best results. 
                           Would you like to begin working with this specialist?</p>`;
@@ -646,10 +984,85 @@ class AIPromptingGuide {
           textInput.placeholder = specialist.placeholderText || 'Type your question here...';
         }
         
-        // Load specialist-specific notes
-        this.loadUserNotes(specialistId);
+        this.saveUserPreferences();
+        return;
       }
-    });
+    }
+    
+    // Request specialist details with retry logic
+    this.sendMessageWithRetry(
+      { action: 'getSpecialistDetails', specialistId },
+      (response) => {
+        if (response && response.specialist) {
+          const specialist = response.specialist;
+          this.specialistData = specialist;
+          
+          // Update messages container with specialist description
+          const messagesContainer = document.getElementById('ai-prompting-guide-messages');
+          if (messagesContainer) {
+            messagesContainer.innerHTML = '';
+            
+            // Create a brief description of the specialist
+            let description = '';
+            if (specialist.description) {
+              description = `<p><strong>${specialist.name}</strong> helps you with ${specialist.description.toLowerCase()}. 
+                            This specialist can guide you through a structured workflow to achieve the best results. 
+                            Would you like to begin working with this specialist?</p>`;
+            } else {
+              description = `<p>Would you like to begin working with the ${specialist.name} specialist?</p>`;
+            }
+            
+            // Add the description and Yes/No buttons
+            this.addAssistantMessage(description);
+            this.createYesNoButtons();
+            
+            // Mark that we're awaiting confirmation
+            this.awaitingConfirmation = true;
+          }
+          
+          // Update input placeholder
+          const textInput = document.getElementById('ai-prompting-guide-input');
+          if (textInput) {
+            textInput.placeholder = specialist.placeholderText || 'Type your question here...';
+          }
+        } else if (response && response.error) {
+          console.error('[AIPG] Error getting specialist details:', response.error);
+          this.addAssistantMessage(`<strong>Error:</strong> Failed to load specialist details: ${response.error}`);
+        }
+      },
+      'getSpecialistDetails',
+      async () => {
+        // Fallback when we can't get specialist details
+        if (!this.fallbackSpecialists) {
+          await this.loadFallbackData();
+        } else {
+          const specialist = this.fallbackSpecialists.find(s => s.id === specialistId) || this.fallbackSpecialists[0];
+          this.specialistData = specialist;
+          
+          const messagesContainer = document.getElementById('ai-prompting-guide-messages');
+          if (messagesContainer) {
+            messagesContainer.innerHTML = '';
+            
+            this.addAssistantMessage(
+              `<strong>⚠️ Notice:</strong> Unable to load full details for the ${specialist.name} specialist. ` +
+              `Using limited offline data. Some features may be unavailable.`
+            );
+            
+            let description = '';
+            if (specialist.description) {
+              description = `<p><strong>${specialist.name}</strong> helps you with ${specialist.description.toLowerCase()}. 
+                            Would you like to begin working with this specialist?</p>`;
+            } else {
+              description = `<p>Would you like to begin working with the ${specialist.name} specialist?</p>`;
+            }
+            
+            this.addAssistantMessage(description);
+            this.createYesNoButtons();
+            this.awaitingConfirmation = true;
+          }
+        }
+      }
+    );
     
     this.saveUserPreferences();
   }
@@ -797,10 +1210,11 @@ class AIPromptingGuide {
   }
 
   /**
-   * Change the current model
+   * Change the current model with enhanced error handling
    */
   changeModel(modelId) {
     this.currentModel = modelId;
+    console.log('[AIPG] Changed model to:', modelId);
     this.saveUserPreferences();
   }
 
@@ -835,7 +1249,7 @@ class AIPromptingGuide {
   }
 
   /**
-   * Generate a response based on user input
+   * Generate a response based on user input with enhanced error handling
    */
   generateResponse(userMessage) {
     if (!this.currentSpecialist || !this.currentModel) {
@@ -884,7 +1298,17 @@ class AIPromptingGuide {
       }
     }
     
-    // Request response from background script
+    // Check if extension context is valid
+    if (!this.isExtensionContextValid()) {
+      console.warn('[AIPG] Extension context invalid during generateResponse');
+      this.addAssistantMessage(
+        '<strong>⚠️ Notice:</strong> Unable to communicate with the extension background service. ' +
+        'The extension may need to be reloaded. Please try refreshing the page or reloading the extension.'
+      );
+      return;
+    }
+    
+    // Request response from background script with retry logic
     const requestPayload = {
       action: 'generateResponse',
       specialistId: this.currentSpecialist,
@@ -895,27 +1319,12 @@ class AIPromptingGuide {
     };
 
     const TIMEOUT_MS = 8000; // 8-second safety timeout
-    let responded = false;
-
-    const timeoutId = setTimeout(() => {
-      if (!responded) {
-        console.error('AI Prompting Guide: background response timed-out', requestPayload);
-        this.addAssistantMessage('[TIMEOUT] Sorry, the request is taking longer than expected. Please try again in a moment.');
-      }
-    }, TIMEOUT_MS);
-
-    try {
-      chrome.runtime.sendMessage(requestPayload, (response) => {
-        responded = true;
-        clearTimeout(timeoutId);
-
-        // Catch low-level messaging errors
-        if (chrome.runtime.lastError) {
-          console.error('AI Prompting Guide: runtime messaging error', chrome.runtime.lastError);
-          this.addAssistantMessage('[ERROR] Unable to communicate with the extension background process. Please reload the extension and try again.');
-          return;
-        }
-
+    
+    console.log('[AIPG] Sending generateResponse request:', requestPayload);
+    
+    this.sendMessageWithRetry(
+      requestPayload,
+      (response) => {
         // Normal success path
         if (response && response.message) {
           this.addAssistantMessage(response.message);
@@ -932,21 +1341,37 @@ class AIPromptingGuide {
 
         // Background script returned an explicit error
         if (response && response.error) {
-          console.error('AI Prompting Guide: background error', response.error);
-          this.addAssistantMessage(`[ERROR] ${response.error}`);
+          console.error('[AIPG] Background error in generateResponse:', response.error);
+          this.addAssistantMessage(`<strong>Error:</strong> ${response.error}`);
           return;
         }
 
         // Fallback: unknown shape
-        console.warn('AI Prompting Guide: unexpected response format', response);
+        console.warn('[AIPG] Unexpected response format in generateResponse:', response);
         this.addAssistantMessage('I apologize, but I was unable to generate a response due to an unexpected issue. Please try again.');
-      });
-    } catch (err) {
-      responded = true;
-      clearTimeout(timeoutId);
-      console.error('AI Prompting Guide: sendMessage threw an exception', err);
-      this.addAssistantMessage('[ERROR] A critical error occurred while sending your request. Please refresh the page or reload the extension.');
-    }
+      },
+      'generateResponse',
+      () => {
+        // Fallback when communication fails completely
+        console.error('[AIPG] Communication failed in generateResponse');
+        this.addAssistantMessage(
+          '<strong>⚠️ Communication Error:</strong> Unable to reach the extension background service. ' +
+          'This could be due to the extension being in an invalid state. Please try reloading the extension from the Extensions page ' +
+          '(chrome://extensions) and refreshing this page.'
+        );
+        
+        // If we're in a workflow, provide a basic response
+        if (this.workflowActive && this.specialistData) {
+          const stepInfo = this.specialistData.defaultPromptingTechniques?.find(s => s.step === this.currentStep);
+          if (stepInfo) {
+            this.addAssistantMessage(
+              `<strong>Offline Guidance:</strong> For ${stepInfo.title}, try to ${stepInfo.description.toLowerCase()}. ` +
+              `When ready, type "Next Step" to continue to step ${this.currentStep + 1}.`
+            );
+          }
+        }
+      }
+    );
   }
 
   /**
@@ -1024,13 +1449,27 @@ class AIPromptingGuide {
   }
 
   /**
-   * Load user preferences from storage
+   * Load user preferences from storage with enhanced error handling
    */
   async loadUserPreferences() {
     try {
+      console.log('[AIPG] Loading user preferences');
+      
+      // Check if extension context is valid
+      if (!this.isExtensionContextValid()) {
+        console.warn('[AIPG] Extension context invalid during loadUserPreferences');
+        return; // Use defaults
+      }
+      
       chrome.storage.local.get(['aiPromptingGuidePrefs'], (result) => {
+        if (chrome.runtime.lastError) {
+          console.error('[AIPG] Error loading preferences:', chrome.runtime.lastError);
+          return;
+        }
+        
         if (result.aiPromptingGuidePrefs) {
           const prefs = result.aiPromptingGuidePrefs;
+          console.log('[AIPG] Loaded user preferences:', prefs);
           
           // Load position and size
           if (prefs.position) this.position = prefs.position;
@@ -1043,18 +1482,26 @@ class AIPromptingGuide {
           // Load notes and rules
           if (prefs.userNotes) this.userNotes = prefs.userNotes;
           if (prefs.customRules) this.customRules = prefs.customRules;
+        } else {
+          console.log('[AIPG] No saved preferences found, using defaults');
         }
       });
     } catch (error) {
-      console.error('Failed to load preferences:', error);
+      console.error('[AIPG] Failed to load preferences:', error);
     }
   }
 
   /**
-   * Save user preferences to storage
+   * Save user preferences to storage with enhanced error handling
    */
   saveUserPreferences() {
     try {
+      // Check if extension context is valid
+      if (!this.isExtensionContextValid()) {
+        console.warn('[AIPG] Extension context invalid during saveUserPreferences');
+        return;
+      }
+      
       const prefs = {
         position: this.position,
         size: this.size,
@@ -1064,9 +1511,17 @@ class AIPromptingGuide {
         customRules: this.customRules
       };
       
-      chrome.storage.local.set({ aiPromptingGuidePrefs: prefs });
+      console.log('[AIPG] Saving user preferences:', prefs);
+      
+      chrome.storage.local.set({ aiPromptingGuidePrefs: prefs }, () => {
+        if (chrome.runtime.lastError) {
+          console.error('[AIPG] Error saving preferences:', chrome.runtime.lastError);
+        } else {
+          console.log('[AIPG] User preferences saved successfully');
+        }
+      });
     } catch (error) {
-      console.error('Failed to save preferences:', error);
+      console.error('[AIPG] Failed to save preferences:', error);
     }
   }
 }
