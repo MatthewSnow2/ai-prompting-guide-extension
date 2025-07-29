@@ -27,6 +27,10 @@ class AIPromptingGuide {
     this.awaitingConfirmation = false;
     this.specialistData = null;
 
+    // Session data storage for multi-step workflow
+    this.sessionData = {}; // Store all user responses across steps
+    this.currentQuestion = null; // Track which question is being answered
+
     // Error handling and retry state
     this.retryCount = 0;
     this.maxRetries = 3;
@@ -68,6 +72,16 @@ class AIPromptingGuide {
     this.sendMessageWithRetry = this.sendMessageWithRetry.bind(this);
     this.loadFallbackData = this.loadFallbackData.bind(this);
     this.retryWithBackoff = this.retryWithBackoff.bind(this);
+    
+    // New workflow methods for multi-step data collection
+    this.collectStepResponse = this.collectStepResponse.bind(this);
+    this.generateDynamicGuidance = this.generateDynamicGuidance.bind(this);
+    this.isStepComplete = this.isStepComplete.bind(this);
+    this.generateFinalPrompt = this.generateFinalPrompt.bind(this);
+    this.generateResearchQuestions = this.generateResearchQuestions.bind(this);
+    this.generateScopeOutline = this.generateScopeOutline.bind(this);
+    this.generateDataSources = this.generateDataSources.bind(this);
+    this.generateReportFormat = this.generateReportFormat.bind(this);
   }
 
   /**
@@ -685,6 +699,10 @@ class AIPromptingGuide {
     this.currentStep = null;
     this.workflowActive = false;
     this.awaitingConfirmation = false;
+    
+    // Reset session data
+    this.sessionData = {};
+    this.currentQuestion = null;
 
     // If a specialist is selected, reload its welcome; otherwise generic
     if (this.currentSpecialist) {
@@ -946,6 +964,10 @@ class AIPromptingGuide {
     this.workflowActive = false;
     this.awaitingConfirmation = false;
     
+    // Reset session data
+    this.sessionData = {};
+    this.currentQuestion = null;
+    
     console.log('[AIPG] Changing specialist to:', specialistId);
     
     // Check if we already have fallback data for this specialist
@@ -1141,6 +1163,7 @@ class AIPromptingGuide {
     
     this.workflowActive = true;
     this.currentStep = 1;
+    this.sessionData = {}; // Initialize session data
     
     // Display the first step
     this.displayCurrentStep();
@@ -1156,10 +1179,12 @@ class AIPromptingGuide {
     
     if (this.currentStep < totalSteps) {
       this.currentStep++;
+      this.currentQuestion = null; // Reset current question for new step
       this.displayCurrentStep();
     } else {
-      // Workflow complete
-      this.addAssistantMessage('Congratulations! You have completed all steps in this workflow.');
+      // Workflow complete - generate final prompt
+      const finalPrompt = this.generateFinalPrompt();
+      this.addAssistantMessage(`<strong>🎉 Your CRISP Framework Prompt:</strong><br><pre>${finalPrompt}</pre><br><p>Copy this prompt to use with your preferred AI model.</p>`);
       this.workflowActive = false;
       this.currentStep = null;
     }
@@ -1185,28 +1210,274 @@ class AIPromptingGuide {
       return;
     }
     
-    // Find the prompt template for this step
-    let promptTemplate = '';
-    if (this.specialistData.commonPatterns) {
-      const pattern = this.specialistData.commonPatterns.find(p => p.step === this.currentStep);
-      if (pattern && pattern.promptTemplate) {
-        promptTemplate = pattern.promptTemplate;
+    // Build the step display based on which step we're on
+    let html = `<strong>Step ${step.step}/${steps.length} – ${step.title}</strong><br>`;
+    
+    // For Step 1, show specific research questions
+    if (this.currentStep === 1) {
+      html += `<em>${step.description}</em><br><br>`;
+      html += `<ol>
+        <li>What is the topic you want to research?</li>
+        <li>Do you have a specific focus or exclusions?</li>
+      </ol>`;
+      html += `<p>Please enter your research topic in the text input below.</p>`;
+      
+      // Set current question to topic
+      this.currentQuestion = 'topic';
+    } else {
+      // For other steps, use the default display format
+      html += `<em>${step.description}</em><br><br>`;
+      html += `<strong>Expected Output:</strong> ${step.output}<br><br>`;
+      
+      // Find the prompt template for this step
+      let promptTemplate = '';
+      if (this.specialistData.commonPatterns) {
+        const pattern = this.specialistData.commonPatterns.find(p => p.step === this.currentStep);
+        if (pattern && pattern.promptTemplate) {
+          promptTemplate = pattern.promptTemplate;
+        }
+      }
+      
+      if (promptTemplate) {
+        html += `<strong>Prompt Template:</strong><br><code>${promptTemplate}</code><br><br>`;
+        html += 'Replace placeholders (e.g. <code>[topic]</code>) with your specifics.';
+      } else {
+        html += 'Please provide details for this step.';
       }
     }
     
-    // Build the step display
-    let html = `<strong>Step ${step.step}/${steps.length} – ${step.title}</strong><br>`;
-    html += `<em>${step.description}</em><br><br>`;
-    html += `<strong>Expected Output:</strong> ${step.output}<br><br>`;
-    
-    if (promptTemplate) {
-      html += `<strong>Prompt Template:</strong><br><code>${promptTemplate}</code><br><br>`;
-      html += 'Replace placeholders (e.g. <code>[topic]</code>) with your specifics.';
-    } else {
-      html += 'Please provide details for this step.';
+    this.addAssistantMessage(html);
+  }
+
+  /**
+   * Collect and store user response for the current step
+   * @param {string} userMessage - The user's message
+   * @returns {string|null} - Dynamic guidance based on the input, or null if not applicable
+   */
+  collectStepResponse(userMessage) {
+    // Initialize step data if not exists
+    if (!this.sessionData[this.currentStep]) {
+      this.sessionData[this.currentStep] = {};
     }
     
-    this.addAssistantMessage(html);
+    // For Step 1, handle topic and focus questions
+    if (this.currentStep === 1) {
+      if (this.currentQuestion === 'topic') {
+        // Store the research topic
+        this.sessionData[this.currentStep].topic = userMessage;
+        
+        // Update current question to focus
+        this.currentQuestion = 'focus';
+        
+        // Generate dynamic guidance based on the topic
+        return this.generateDynamicGuidance(1, userMessage);
+      } else if (this.currentQuestion === 'focus') {
+        // Store the focus/exclusions
+        this.sessionData[this.currentStep].focus = userMessage;
+        
+        // Mark step as complete
+        this.currentQuestion = null;
+        
+        // Generate final guidance for step 1
+        return this.generateDynamicGuidance(1, this.sessionData[this.currentStep].topic, userMessage);
+      }
+    }
+    
+    // For other steps (to be implemented later)
+    // Store the response for the current step
+    this.sessionData[this.currentStep].response = userMessage;
+    
+    return null;
+  }
+
+  /**
+   * Generate dynamic guidance based on user inputs
+   * @param {number} step - The current step number
+   * @param {string} topic - The research topic (for step 1)
+   * @param {string} focus - The focus/exclusions (for step 1)
+   * @returns {string} - HTML content with dynamic guidance
+   */
+  generateDynamicGuidance(step, topic = null, focus = null) {
+    if (step === 1 && topic) {
+      // Generate 5-7 research questions based on the topic
+      const researchQuestions = this.generateResearchQuestions(topic);
+      
+      // Generate scope outline
+      const scopeOutline = this.generateScopeOutline(topic, focus);
+      
+      // Generate data sources and report format
+      const dataSources = this.generateDataSources(topic);
+      const reportFormat = this.generateReportFormat(topic);
+      
+      let html = `<strong>Research Plan for: ${topic}</strong><br><br>`;
+      html += `<strong>Research Questions:</strong><br>`;
+      html += `<ol>`;
+      researchQuestions.forEach(question => {
+        html += `<li>${question}</li>`;
+      });
+      html += `</ol><br>`;
+      
+      html += `<strong>Research Scope:</strong><br>${scopeOutline}<br><br>`;
+      html += `<strong>Suggested Data Types & Sources:</strong><br>${dataSources}<br><br>`;
+      html += `<strong>Recommended Report Format:</strong><br>${reportFormat}<br><br>`;
+      
+      if (!focus) {
+        html += `<p>Do you have any specific focus areas or exclusions for this research? If not, simply type "No".</p>`;
+      } else {
+        html += `<p>Great! Your research scope is now defined. Type "Next Step" to continue to Step 2.</p>`;
+      }
+      
+      return html;
+    }
+    
+    // For other steps (to be implemented later)
+    return null;
+  }
+
+  /**
+   * Generate 5-7 research questions based on the topic
+   * @param {string} topic - The research topic
+   * @returns {string[]} - Array of research questions
+   */
+  generateResearchQuestions(topic) {
+    // This would ideally use the AI to generate questions
+    // For now, we'll create template questions
+    return [
+      `What are the key components of ${topic}?`,
+      `How has ${topic} evolved over time?`,
+      `What are the current challenges in ${topic}?`,
+      `What are the leading theories or approaches to ${topic}?`,
+      `How is ${topic} implemented in different contexts?`,
+      `What are the future trends for ${topic}?`,
+      `What metrics are used to evaluate success in ${topic}?`
+    ];
+  }
+
+  /**
+   * Generate scope outline based on topic and focus
+   * @param {string} topic - The research topic
+   * @param {string} focus - The focus/exclusions
+   * @returns {string} - Scope outline text
+   */
+  generateScopeOutline(topic, focus) {
+    let scope = `This research will examine ${topic} with particular attention to its key aspects, current state, and future developments.`;
+    
+    if (focus && focus.toLowerCase() !== "no") {
+      scope += ` The research will specifically focus on ${focus}.`;
+    }
+    
+    return scope;
+  }
+
+  /**
+   * Generate data sources suggestions
+   * @param {string} topic - The research topic
+   * @returns {string} - HTML content with data sources
+   */
+  generateDataSources(topic) {
+    return `
+      <ul>
+        <li>Academic journals and research papers on ${topic}</li>
+        <li>Industry reports and white papers</li>
+        <li>Expert interviews and case studies</li>
+        <li>Statistical databases and surveys</li>
+        <li>Market analysis and trend reports</li>
+      </ul>
+    `;
+  }
+
+  /**
+   * Generate report format recommendation
+   * @param {string} topic - The research topic
+   * @returns {string} - HTML content with report format
+   */
+  generateReportFormat(topic) {
+    return `
+      <ul>
+        <li><strong>Executive Summary:</strong> Key findings on ${topic}</li>
+        <li><strong>Introduction:</strong> Background and research objectives</li>
+        <li><strong>Methodology:</strong> Research approach and data sources</li>
+        <li><strong>Findings:</strong> Detailed analysis with supporting evidence</li>
+        <li><strong>Discussion:</strong> Interpretation of results and implications</li>
+        <li><strong>Recommendations:</strong> Actionable insights based on findings</li>
+        <li><strong>Conclusion:</strong> Summary of key points and future directions</li>
+      </ul>
+    `;
+  }
+
+  /**
+   * Check if the current step has all required responses
+   * @param {number} step - The step number to check
+   * @returns {boolean} - True if step is complete
+   */
+  isStepComplete(step) {
+    if (!this.sessionData[step]) return false;
+    
+    if (step === 1) {
+      return this.sessionData[step].topic && 
+             (this.sessionData[step].focus !== undefined);
+    }
+    
+    // For other steps (to be implemented later)
+    return this.sessionData[step].response !== undefined;
+  }
+
+  /**
+   * Generate final CRISP framework prompt when all steps are complete
+   * @returns {string} - The complete CRISP framework prompt
+   */
+  generateFinalPrompt() {
+    // For now, we'll focus on generating a prompt based on Step 1 data
+    // This will be expanded as we implement more steps
+    
+    // Extract expert type based on the research topic
+    const topic = this.sessionData[1]?.topic || "";
+    let expertType = "research specialist";
+    
+    // Simple logic to determine expert type based on topic keywords
+    if (topic.match(/technology|software|AI|computing|digital/i)) {
+      expertType = "technology researcher";
+    } else if (topic.match(/business|market|industry|economic|finance/i)) {
+      expertType = "business analyst";
+    } else if (topic.match(/science|biology|chemistry|physics|medical/i)) {
+      expertType = "scientific researcher";
+    } else if (topic.match(/history|culture|society|people|anthropology/i)) {
+      expertType = "social science researcher";
+    }
+    
+    // Build CRISP framework prompt
+    let prompt = `Act as a ${expertType} with expertise in ${topic}.\n\n`;
+    
+    // Add context from all steps
+    prompt += "CONTEXT:\n";
+    prompt += `Research Topic: ${this.sessionData[1]?.topic || ""}\n`;
+    prompt += `Focus/Exclusions: ${this.sessionData[1]?.focus || "None specified"}\n`;
+    // Would add more context from other steps here
+    
+    // Add request
+    prompt += "\nREQUEST:\n";
+    prompt += `Conduct a comprehensive analysis of ${topic}`;
+    if (this.sessionData[1]?.focus && this.sessionData[1]?.focus.toLowerCase() !== "no") {
+      prompt += ` with specific focus on ${this.sessionData[1]?.focus}`;
+    }
+    prompt += ".\n\n";
+    
+    // Add specific instructions
+    prompt += "SPECIFIC INSTRUCTIONS:\n";
+    prompt += "1. Begin with an executive summary of key findings\n";
+    prompt += "2. Provide historical context and current state\n";
+    prompt += "3. Analyze major trends, challenges, and opportunities\n";
+    prompt += "4. Include relevant data, statistics, and examples\n";
+    prompt += "5. Conclude with actionable recommendations\n\n";
+    
+    // Add preferences
+    prompt += "PREFERENCES:\n";
+    prompt += "- Use clear, concise language\n";
+    prompt += "- Structure the response with headings and bullet points\n";
+    prompt += "- Include citations where appropriate\n";
+    prompt += "- Focus on evidence-based insights\n";
+    
+    return prompt;
   }
 
   /**
@@ -1286,6 +1557,7 @@ class AIPromptingGuide {
         const stepNum = parseInt(stepMatch[1], 10);
         if (stepNum > 0 && stepNum <= (this.specialistData?.defaultPromptingTechniques?.length || 0)) {
           this.currentStep = stepNum;
+          this.currentQuestion = null; // Reset current question for new step
           this.displayCurrentStep();
           return;
         }
@@ -1294,6 +1566,27 @@ class AIPromptingGuide {
       // Check for "show all steps" command
       if (lowerMsg === 'show all steps' || lowerMsg === 'show steps') {
         this.showAllSteps();
+        return;
+      }
+      
+      // Try to collect response for current step
+      const dynamicResponse = this.collectStepResponse(userMessage);
+      if (dynamicResponse) {
+        this.addAssistantMessage(dynamicResponse);
+        
+        // Check if step is complete and should auto-advance
+        if (this.isStepComplete(this.currentStep) && this.currentQuestion === null) {
+          // If it's the final step, generate the final prompt
+          if (this.currentStep === 7) {
+            const finalPrompt = this.generateFinalPrompt();
+            this.addAssistantMessage(`<strong>🎉 Your CRISP Framework Prompt:</strong><br><pre>${finalPrompt}</pre><br><p>Copy this prompt to use with your preferred AI model.</p>`);
+            this.workflowActive = false;
+            this.currentStep = null;
+          } else {
+            // Prompt to move to next step
+            this.addAssistantMessage('When you\'re ready, type "Next Step" to continue.');
+          }
+        }
         return;
       }
     }
