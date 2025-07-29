@@ -15,7 +15,7 @@ Its goal is to shorten the “prompt → iterate → success” loop when intera
 
 ---
 
-## 2. Installation (Chrome)
+## 2. Installation – Chrome
 
 1. Download or clone this repository.  
 2. Open **chrome://extensions** in Chrome.  
@@ -25,7 +25,7 @@ Its goal is to shorten the “prompt → iterate → success” loop when intera
 
 ---
 
-## 3. Features & Capabilities
+## 3. Core Features & Capabilities
 
 | Category | Highlights |
 |----------|------------|
@@ -37,6 +37,8 @@ Its goal is to shorten the “prompt → iterate → success” loop when intera
 | UI/UX | Draggable, resizable chat window; position memory; responsive design. |
 | Persistence | All data stored locally via `chrome.storage`; import/export ready. |
 | Popup Access | Quick specialist switch & settings without opening the full UI. |
+| Robust Error Handling | Automatic context-loss detection, exponential-back-off recovery and offline fall-backs. |
+| LLM Integration Framework | Pluggable connector (OpenAI / Anthropic ready) with short-history prompts and API-key storage. |
 
 ---
 
@@ -59,7 +61,87 @@ Its goal is to shorten the “prompt → iterate → success” loop when intera
 
 ---
 
-## 5. Development Setup
+## 5. Testing the Extension
+
+The repository ships with **`test-extension.html`** – a self-contained page that exercises every feature.
+
+1. Load the extension (see Installation).  
+2. Open `test-extension.html` in your browser.  
+3. Click **“Check Extension”** – you should see a success banner.  
+4. Use **“Manually Initialize Extension”** if the interface is hidden.  
+5. Follow on-page instructions to:  
+   * Select a specialist & model  
+   * Walk through the 7-step Research workflow  
+   * Drag, resize, clear chat and close the window  
+   * Refresh the page to confirm state persistence  
+
+---
+
+## 6. Troubleshooting
+
+| Symptom | Fix |
+|---------|-----|
+| Extension icon missing | Ensure Developer-Mode is ON and the folder is still loaded. |
+| “Extension context invalid” message | Chrome occasionally unloads service-workers – the guide auto-recovers; otherwise **Reload** the extension from `chrome://extensions`. |
+| Empty dropdowns | Check console for JSON parse errors in `data/*.json`; ensure quotes are escaped properly. |
+| No LLM responses | Set your API-key in dev-console → `aipg.llmEnabled = true; aipg.llmApiKey='sk-...'`. |
+
+---
+
+## 7. Technical Architecture
+
+```
+ai-prompting-guide-extension/
+├─ manifest.json           # MV3 definition
+├─ background/             # Service-worker – storage & messaging
+├─ content/                # content.js – draggable chat UI
+├─ popup/                  # lightweight toolbar popup
+├─ data/                   # specialists.json, models.json
+└─ docs/                   # workflow methodology
+```
+
+Key design points:
+
+* **Content Script UI** – rendered in-page, < 30 KB vanilla JS/CSS, themed `#e6f3ff`.
+* **Service-Worker** – single source of truth for data & long-lived storage.
+* **Message Bus** – `chrome.runtime.sendMessage` with retry / back-off.
+* **LLM Adapter** – generic `callLLMAPI()` wrapper (OpenAI schema), history trimmed to 10 turns.
+* **Context Recovery** – detects worker invalidation, re-registers listeners, retries failed calls.
+
+---
+
+## 8. Configuration & Customisation
+
+| Option | Where | Notes |
+|--------|-------|-------|
+| Default size/position | localStorage (`AIPG_prefs`) | Cleared via *Clear Chat*. |
+| Enable LLM | Dev-console `aipg.llmEnabled=true` | UI toggle coming soon. |
+| API Endpoint / Key | `aipg.llmEndpoint`, `aipg.llmApiKey` | Supports any GPT-style completion endpoint. |
+| Specialists & Models | `data/*.json` | Hot-reloaded on refresh. |
+| Keyboard Shortcuts | `chrome://extensions/shortcuts` | Change or disable. |
+
+---
+
+## 9. Known Issues & Limitations
+
+* LLM intent-parsing stub is heuristic; complex commands may fall through.  
+* No OAuth flow – API-keys are stored only in `localStorage`.  
+* Dark-mode styling is basic.  
+* Firefox support untested (Manifest V3 parity pending).
+
+---
+
+## 10. Future Roadmap
+
+* ⚡ GUI settings panel to manage API keys and themes.  
+* 🌙 Native dark-mode & custom colour palettes.  
+* 📦 Import / export zipped configuration & notes.  
+* 🤝 Team sync via optional Firebase backend.  
+* 🧩 Plugin system for additional workflows / tools.  
+
+---
+
+## 11. Development Setup
 
 1. **Folder Structure**
    ```
@@ -81,7 +163,7 @@ Its goal is to shorten the “prompt → iterate → success” loop when intera
 
 ---
 
-## 6. Framework for Adding / Editing Specialist Content
+## 12. Framework for Adding / Editing Specialist Content
 
 All domain knowledge lives in simple JSON files:
 
@@ -111,7 +193,7 @@ _No build step required._
 
 ---
 
-## 7. Keyboard Shortcuts
+## 13. Keyboard Shortcuts
 
 | Action | Windows / Linux | macOS |
 |--------|-----------------|-------|
@@ -122,19 +204,7 @@ You can adjust these in `chrome://extensions/shortcuts`.
 
 ---
 
-## 8. Future Development Plans
-
-* AI-generated, context-aware responses (OpenAI / Anthropic API integration).  
-* Import / export settings ZIP.  
-* Team-share rules & notes via secure sync.  
-* Site detection for automatic specialist suggestions.  
-* Dark mode & custom themes.  
-
-Feel free to open an issue with your ideas!
-
----
-
-## 9. Contributing Guidelines
+## 14. Contributing Guidelines
 
 1. Fork the repo & create your branch: `git checkout -b feature/my-awesome-thing`  
 2. Commit your changes: `git commit -m 'Add awesome thing'`  

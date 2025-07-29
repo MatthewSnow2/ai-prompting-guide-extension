@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Prompting Guide Extension Test Page</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #3498db;
+            border-bottom: 2px solid #e6f3ff;
+            padding-bottom: 10px;
+        }
+        .test-section {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .test-content {
+            background-color: #ffffff;
+            border: 1px solid #e9ecef;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 20px 0;
+            height: 200px;
+            overflow: auto;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        .status {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .warning {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeeba;
+        }
+        .step {
+            margin-bottom: 10px;
+            padding-left: 20px;
+            position: relative;
+        }
+        .step:before {
+            content: "→";
+            position: absolute;
+            left: 0;
+            color: #3498db;
+        }
+        code {
+            background-color: #f1f1f1;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <h1>AI Prompting Guide Extension Test Page</h1>
+    
+    <div class="test-section">
+        <h2>Extension Status</h2>
+        <div id="extension-status" class="status warning">
+            Checking extension status...
+        </div>
+        <button id="check-extension">Check Extension</button>
+        <button id="manual-initialize">Manually Initialize Extension</button>
+    </div>
+
+    <div class="test-section">
+        <h2>Test Instructions</h2>
+        <p>Follow these steps to test the AI Prompting Guide extension:</p>
+        
+        <div class="step"><strong>Step 1:</strong> Ensure the extension is installed and enabled in Chrome.</div>
+        <div class="step"><strong>Step 2:</strong> Click the "Check Extension" button above to verify if the extension is detected.</div>
+        <div class="step"><strong>Step 3:</strong> If the extension is not detected automatically, click "Manually Initialize Extension".</div>
+        <div class="step"><strong>Step 4:</strong> Once the interface appears, test the following features:</div>
+        <ul>
+            <li>Select a specialist from the dropdown (try "Research & Analysis")</li>
+            <li>Select a model from the dropdown</li>
+            <li>Test the workflow by responding to the prompts</li>
+            <li>Try dragging the interface around the page</li>
+            <li>Resize the interface using the bottom-right corner</li>
+            <li>Test the clear chat button</li>
+            <li>Test closing and reopening the interface</li>
+        </ul>
+        <div class="step"><strong>Step 5:</strong> Test error handling by refreshing the page and immediately using the extension.</div>
+    </div>
+
+    <div class="test-section">
+        <h2>Sample Content for Testing</h2>
+        <p>Here's some sample content you can use when testing the extension:</p>
+        
+        <div class="test-content">
+            <h3>Research Topic Ideas</h3>
+            <ul>
+                <li><strong>AI Ethics:</strong> Exploring the ethical implications of artificial intelligence in decision-making processes</li>
+                <li><strong>Climate Technology:</strong> Innovations in carbon capture and storage technologies</li>
+                <li><strong>Future of Work:</strong> Impact of automation and AI on employment and workforce development</li>
+                <li><strong>Digital Privacy:</strong> Balancing convenience and privacy in the age of big data</li>
+                <li><strong>Renewable Energy:</strong> Comparative analysis of emerging renewable energy technologies</li>
+            </ul>
+            
+            <h3>Sample Questions</h3>
+            <p>Try asking the extension questions like:</p>
+            <ul>
+                <li>"What should I research about AI ethics?"</li>
+                <li>"Help me create a research plan for climate technology"</li>
+                <li>"I want to analyze the future of work"</li>
+                <li>"Show me all steps in the research workflow"</li>
+                <li>"Go to step 3"</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>Troubleshooting</h2>
+        <p>If you encounter issues with the extension:</p>
+        <ul>
+            <li>Make sure the extension is properly installed from the Chrome Web Store or loaded as an unpacked extension</li>
+            <li>Check the browser console (F12) for any error messages</li>
+            <li>Try refreshing the page and reopening the extension</li>
+            <li>If context errors occur, try reloading the extension from chrome://extensions</li>
+            <li>Verify that all permissions are granted for the extension</li>
+        </ul>
+    </div>
+
+    <script>
+        // Variables to track extension status
+        let extensionDetected = false;
+        let extensionInitialized = false;
+        const statusElement = document.getElementById('extension-status');
+        
+        // Function to update status display
+        function updateStatus(message, type) {
+            statusElement.textContent = message;
+            statusElement.className = 'status ' + type;
+        }
+        
+        // Check if extension exists by looking for its elements or global variables
+        function checkExtension() {
+            // Check for the container element
+            const container = document.getElementById('ai-prompting-guide-container');
+            if (container) {
+                extensionDetected = true;
+                extensionInitialized = true;
+                updateStatus('✅ Extension detected and initialized!', 'success');
+                return true;
+            }
+            
+            // Check for global variable that might be set by the extension
+            if (window.aipg) {
+                extensionDetected = true;
+                updateStatus('✅ Extension detected but not initialized. Click "Manually Initialize Extension" to start.', 'warning');
+                return true;
+            }
+            
+            // Check if content script might be injected but not initialized
+            try {
+                // This is a simple check that might detect if the extension's content script is loaded
+                // but hasn't created its UI yet
+                const scripts = document.querySelectorAll('script');
+                for (const script of scripts) {
+                    if (script.textContent && script.textContent.includes('AIPromptingGuide')) {
+                        extensionDetected = true;
+                        updateStatus('✅ Extension script detected but not initialized. Click "Manually Initialize Extension" to start.', 'warning');
+                        return true;
+                    }
+                }
+            } catch (e) {
+                console.error('Error checking for extension scripts:', e);
+            }
+            
+            updateStatus('❌ Extension not detected. Please make sure it is installed and enabled.', 'error');
+            return false;
+        }
+        
+        // Try to manually initialize the extension
+        function manualInitialize() {
+            if (window.aipg) {
+                try {
+                    // If the extension's global object exists, try to initialize it
+                    window.aipg.initialize();
+                    setTimeout(() => {
+                        if (document.getElementById('ai-prompting-guide-container')) {
+                            updateStatus('✅ Extension manually initialized successfully!', 'success');
+                            extensionInitialized = true;
+                        } else {
+                            updateStatus('⚠️ Extension initialization attempted but UI not visible. Try toggling visibility.', 'warning');
+                        }
+                    }, 500);
+                } catch (e) {
+                    console.error('Error initializing extension:', e);
+                    updateStatus('❌ Error initializing extension. See console for details.', 'error');
+                }
+            } else {
+                // Try to dispatch a custom event that the extension might be listening for
+                const event = new CustomEvent('ai-prompting-guide-initialize');
+                document.dispatchEvent(event);
+                
+                setTimeout(() => {
+                    if (document.getElementById('ai-prompting-guide-container')) {
+                        updateStatus('✅ Extension initialized via custom event!', 'success');
+                        extensionInitialized = true;
+                    } else {
+                        updateStatus('❌ Failed to initialize extension. Please check installation.', 'error');
+                    }
+                }, 500);
+            }
+        }
+        
+        // Add event listeners to buttons
+        document.getElementById('check-extension').addEventListener('click', checkExtension);
+        document.getElementById('manual-initialize').addEventListener('click', manualInitialize);
+        
+        // Check extension status on page load
+        window.addEventListener('load', () => {
+            // Wait a moment to allow extension to initialize
+            setTimeout(checkExtension, 1000);
+        });
+        
+        // Listen for extension initialization
+        document.addEventListener('ai-prompting-guide-loaded', () => {
+            updateStatus('✅ Extension loaded event detected!', 'success');
+            extensionDetected = true;
+        });
+    </script>
+</body>
+</html>
