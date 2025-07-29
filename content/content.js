@@ -1,1188 +1,759 @@
-/**
- * AI Prompting Guide - Content Script
- * Injects the AI Prompting Guide interface into web pages
- */
-
 class AIPromptingGuide {
   constructor() {
+    // Initialize properties
     this.isVisible = false;
     this.position = { x: 20, y: 20 };
     this.size = { width: 400, height: 600 };
     this.isDragging = false;
     this.isResizing = false;
     this.dragOffset = { x: 0, y: 0 };
+    this.specialists = [];
+    this.models = [];
     this.currentSpecialist = null;
     this.currentModel = null;
-    this.userNotes = {};
-    this.customRules = {
-      global: [],
-      specialist: {}
-    };
-    this.container = null;
-    this.initialized = false;
-
-    // Workflow state tracking
-    this.currentStep = null;
-    this.workflowActive = false;
-    this.awaitingConfirmation = false;
     this.specialistData = null;
-
-    // Session data storage for multi-step workflow
-    this.sessionData = {}; // Store all user responses across steps
-    this.currentQuestion = null; // Track which question is being answered
-
-    // Error handling and retry state
-    this.retryCount = 0;
-    this.maxRetries = 3;
-    this.backoffTime = 500; // Start with 500ms backoff
-    this.pendingRetries = {};
-    this.fallbackSpecialists = null;
-    this.fallbackModels = null;
-
-    // Bind methods to this context
+    this.workflowActive = false;
+    this.currentStep = null;
+    this.currentQuestion = null;
+    this.stepResponses = {};
+    this.awaitingConfirmation = false;
+    this.confirmationCallback = null;
+    this.customRules = [];
+    this.userNotes = {};
+    this.contextRecoveryAttempts = 0;
+    this.maxRecoveryAttempts = 3;
+    this.lastContextValidation = 0;
+    this.contextValidationInterval = 60000; // 1 minute
+    this.extensionContextValid = true;
+    
+    // LLM integration properties
+    this.llmEnabled = false;
+    this.llmApiKey = null;
+    this.llmEndpoint = 'https://api.openai.com/v1/completions';
+    this.llmConversationHistory = [];
+    this.llmMaxHistoryLength = 10;
+    this.llmContext = {};
+    
+    // Bind methods to this
     this.initialize = this.initialize.bind(this);
-    this.injectInterface = this.injectInterface.bind(this);
-    this.toggleInterface = this.toggleInterface.bind(this);
-    this.handleKeyboardShortcut = this.handleKeyboardShortcut.bind(this);
-    this.startDragging = this.startDragging.bind(this);
-    this.stopDragging = this.stopDragging.bind(this);
-    this.onDrag = this.onDrag.bind(this);
-    this.startResizing = this.startResizing.bind(this);
-    this.stopResizing = this.stopResizing.bind(this);
-    this.onResize = this.onResize.bind(this);
+    this.createInterface = this.createInterface.bind(this);
+    this.toggleVisibility = this.toggleVisibility.bind(this);
+    this.handleDragStart = this.handleDragStart.bind(this);
+    this.handleDrag = this.handleDrag.bind(this);
+    this.handleDragEnd = this.handleDragEnd.bind(this);
+    this.handleResizeStart = this.handleResizeStart.bind(this);
+    this.handleResize = this.handleResize.bind(this);
+    this.handleResizeEnd = this.handleResizeEnd.bind(this);
+    this.handleSendMessage = this.handleSendMessage.bind(this);
     this.loadSpecialists = this.loadSpecialists.bind(this);
     this.loadModels = this.loadModels.bind(this);
-    this.changeSpecialist = this.changeSpecialist.bind(this);
-    this.changeModel = this.changeModel.bind(this);
-    this.saveUserPreferences = this.saveUserPreferences.bind(this);
-    this.loadUserPreferences = this.loadUserPreferences.bind(this);
-    this.handleMessage = this.handleMessage.bind(this);
-    this.saveUserNotes = this.saveUserNotes.bind(this);
-    this.saveCustomRules = this.saveCustomRules.bind(this);
-    this.closeInterface = this.closeInterface.bind(this);
-    this.clearMessages = this.clearMessages.bind(this);
+    this.handleSpecialistChange = this.handleSpecialistChange.bind(this);
+    this.handleModelChange = this.handleModelChange.bind(this);
+    this.generateResponse = this.generateResponse.bind(this);
     this.startWorkflow = this.startWorkflow.bind(this);
-    this.moveToNextStep = this.moveToNextStep.bind(this);
     this.displayCurrentStep = this.displayCurrentStep.bind(this);
-    this.createYesNoButtons = this.createYesNoButtons.bind(this);
-    this.handleWorkflowResponse = this.handleWorkflowResponse.bind(this);
-    
-    // New error handling methods
-    this.isExtensionContextValid = this.isExtensionContextValid.bind(this);
-    this.sendMessageWithRetry = this.sendMessageWithRetry.bind(this);
-    this.loadFallbackData = this.loadFallbackData.bind(this);
-    this.retryWithBackoff = this.retryWithBackoff.bind(this);
-    
-    // New workflow methods for multi-step data collection
+    this.moveToNextStep = this.moveToNextStep.bind(this);
     this.collectStepResponse = this.collectStepResponse.bind(this);
-    this.generateDynamicGuidance = this.generateDynamicGuidance.bind(this);
+    this.handleWorkflowResponse = this.handleWorkflowResponse.bind(this);
     this.isStepComplete = this.isStepComplete.bind(this);
     this.generateFinalPrompt = this.generateFinalPrompt.bind(this);
-    this.generateResearchQuestions = this.generateResearchQuestions.bind(this);
-    this.generateScopeOutline = this.generateScopeOutline.bind(this);
-    this.generateDataSources = this.generateDataSources.bind(this);
-    this.generateReportFormat = this.generateReportFormat.bind(this);
-  }
-
-  /**
-   * Check if the extension context is valid for messaging
-   * @returns {boolean} True if the context is valid
-   */
-  isExtensionContextValid() {
-    try {
-      // Check if chrome.runtime is defined and has an id
-      if (!chrome || !chrome.runtime || !chrome.runtime.id) {
-        console.warn('[AIPG] Extension context is invalid - chrome.runtime missing or no ID');
-        return false;
-      }
-      
-      // Check if we can access chrome.runtime.getURL which fails when context is invalid
-      const testUrl = chrome.runtime.getURL('');
-      if (!testUrl) {
-        console.warn('[AIPG] Extension context is invalid - cannot get extension URL');
-        return false;
-      }
-      
-      return true;
-    } catch (err) {
-      console.error('[AIPG] Extension context check failed:', err);
-      return false;
-    }
-  }
-
-  /**
-   * Send a message with retry logic
-   * @param {Object} message - The message to send
-   * @param {Function} callback - Callback function for the response
-   * @param {string} operationName - Name of operation for logging
-   * @param {Function} fallbackFn - Function to call if all retries fail
-   */
-  sendMessageWithRetry(message, callback, operationName, fallbackFn) {
-    const messageId = `${operationName}-${Date.now()}`;
-    let retryCount = 0;
-    const maxRetries = this.maxRetries;
-    let backoffTime = this.backoffTime;
-    
-    console.log(`[AIPG] Sending message for ${operationName}:`, message);
-    
-    const attemptSend = () => {
-      // Check if extension context is valid before sending
-      if (!this.isExtensionContextValid()) {
-        console.error(`[AIPG] Cannot send message for ${operationName} - invalid extension context`);
-        if (fallbackFn) {
-          console.log(`[AIPG] Using fallback for ${operationName}`);
-          fallbackFn();
-        }
-        return;
-      }
-      
-      try {
-        chrome.runtime.sendMessage(message, (response) => {
-          // Check for runtime errors
-          if (chrome.runtime.lastError) {
-            const error = chrome.runtime.lastError;
-            console.error(`[AIPG] ${operationName} attempt ${retryCount + 1}/${maxRetries + 1} failed:`, error);
-            
-            // Retry with exponential backoff if we haven't hit max retries
-            if (retryCount < maxRetries) {
-              retryCount++;
-              const nextBackoff = backoffTime * Math.pow(1.5, retryCount);
-              console.log(`[AIPG] Retrying ${operationName} in ${nextBackoff}ms (attempt ${retryCount + 1}/${maxRetries + 1})`);
-              
-              setTimeout(attemptSend, nextBackoff);
-              return;
-            } else {
-              console.error(`[AIPG] ${operationName} failed after ${maxRetries + 1} attempts`);
-              if (fallbackFn) {
-                console.log(`[AIPG] Using fallback for ${operationName}`);
-                fallbackFn();
-              }
-              
-              // Call callback with error
-              if (callback) {
-                callback({ error: `Communication failed after ${maxRetries + 1} attempts` });
-              }
-            }
-            return;
-          }
-          
-          // Success path
-          console.log(`[AIPG] ${operationName} successful:`, response);
-          if (callback) {
-            callback(response);
-          }
-        });
-      } catch (err) {
-        console.error(`[AIPG] Exception in ${operationName}:`, err);
-        if (retryCount < maxRetries) {
-          retryCount++;
-          const nextBackoff = backoffTime * Math.pow(1.5, retryCount);
-          console.log(`[AIPG] Retrying ${operationName} in ${nextBackoff}ms (attempt ${retryCount + 1}/${maxRetries + 1})`);
-          
-          setTimeout(attemptSend, nextBackoff);
-        } else {
-          console.error(`[AIPG] ${operationName} failed after ${maxRetries + 1} attempts`);
-          if (fallbackFn) {
-            console.log(`[AIPG] Using fallback for ${operationName}`);
-            fallbackFn();
-          }
-          
-          // Call callback with error
-          if (callback) {
-            callback({ error: `Communication failed after ${maxRetries + 1} attempts: ${err.message}` });
-          }
-        }
-      }
-    };
-    
-    // Start the first attempt
-    attemptSend();
-  }
-
-  /**
-   * Load fallback data for specialists and models
-   */
-  async loadFallbackData() {
-    console.log('[AIPG] Loading fallback data');
-    
-    // Define minimal fallback specialists
-    this.fallbackSpecialists = [
-      {
-        id: 'research-analysis',
-        name: 'Research & Analysis',
-        description: 'Conducting research and analyzing information',
-        icon: '🔬',
-        welcomeMessage: 'I can help with research and analysis tasks.',
-        placeholderText: 'What would you like to research?',
-        defaultPromptingTechniques: [
-          {
-            step: 1,
-            title: 'Define Research Scope & Questions',
-            description: 'Clearly define what you want to research and specific questions to answer',
-            output: 'A clear research brief with main questions'
-          },
-          {
-            step: 2,
-            title: 'Information Gathering',
-            description: 'Collect relevant information from reliable sources',
-            output: 'Raw data and information from multiple sources'
-          },
-          {
-            step: 3,
-            title: 'Organize & Structure Data',
-            description: 'Organize collected information into logical categories',
-            output: 'Structured data ready for analysis'
-          },
-          {
-            step: 4,
-            title: 'Analysis & Patterns',
-            description: 'Analyze data to identify patterns, trends, and insights',
-            output: 'Key findings and patterns from the data'
-          },
-          {
-            step: 5,
-            title: 'Critical Evaluation',
-            description: 'Critically evaluate findings, considering limitations and biases',
-            output: 'Evaluated insights with context and limitations'
-          },
-          {
-            step: 6,
-            title: 'Synthesize Findings',
-            description: 'Combine insights into coherent conclusions',
-            output: 'Synthesized conclusions addressing research questions'
-          },
-          {
-            step: 7,
-            title: 'Recommendations & Next Steps',
-            description: 'Provide actionable recommendations based on findings',
-            output: 'Actionable recommendations and next steps'
-          }
-        ]
-      },
-      {
-        id: 'generic',
-        name: 'General Assistant',
-        description: 'General purpose assistance',
-        icon: '🧠',
-        welcomeMessage: 'I can help with various tasks.',
-        placeholderText: 'How can I help you today?'
-      }
-    ];
-    
-    // Define minimal fallback models
-    this.fallbackModels = [
-      {
-        id: 'gpt-4',
-        name: 'GPT-4',
-        description: 'Advanced language model with strong reasoning',
-        icon: '🧠'
-      },
-      {
-        id: 'claude',
-        name: 'Claude',
-        description: 'Helpful, harmless, and honest assistant',
-        icon: '🤖'
-      }
-    ];
-    
-    // Populate dropdowns with fallback data
-    this.populateSpecialistDropdown(this.fallbackSpecialists);
-    this.populateModelDropdown(this.fallbackModels);
-    
-    // Show fallback message to user
-    this.addAssistantMessage(
-      '<strong>⚠️ Notice:</strong> Unable to connect to extension background service. ' +
-      'Using limited offline mode with basic functionality. ' +
-      'Please try reloading the extension from the Extensions page.'
-    );
-  }
-
-  /**
-   * Populate specialist dropdown with provided data
-   */
-  populateSpecialistDropdown(specialists) {
-    const select = document.getElementById('ai-prompting-guide-specialist');
-    if (!select) {
-      console.warn('[AIPG] Specialist <select> not found in DOM');
-      return;
-    }
-    
-    // Clear existing options
-    select.innerHTML = '';
-    
-    // Add specialists as options
-    specialists.forEach(specialist => {
-      const option = document.createElement('option');
-      option.value = specialist.id;
-      option.textContent = `${specialist.icon} ${specialist.name}`;
-      select.appendChild(option);
-    });
-    
-    // Set selected specialist if available
-    if (this.currentSpecialist) {
-      select.value = this.currentSpecialist;
-    } else if (specialists.length > 0) {
-      this.specialistData = specialists[0];
-      this.currentSpecialist = specialists[0].id;
-      select.value = specialists[0].id;
-    }
-  }
-
-  /**
-   * Populate model dropdown with provided data
-   */
-  populateModelDropdown(models) {
-    const select = document.getElementById('ai-prompting-guide-model');
-    if (!select) {
-      console.warn('[AIPG] Model <select> not found in DOM');
-      return;
-    }
-    
-    // Clear existing options
-    select.innerHTML = '';
-    
-    // Add models as options
-    models.forEach(model => {
-      const option = document.createElement('option');
-      option.value = model.id;
-      option.textContent = `${model.icon} ${model.name}`;
-      select.appendChild(option);
-    });
-    
-    // Set selected model if available
-    if (this.currentModel) {
-      select.value = this.currentModel;
-    } else if (models.length > 0) {
-      this.currentModel = models[0].id;
-      select.value = models[0].id;
-    }
-  }
-
-  /**
-   * Retry an operation with exponential backoff
-   */
-  retryWithBackoff(operation, params, retryCount = 0) {
-    const maxRetries = this.maxRetries;
-    const backoffTime = this.backoffTime * Math.pow(1.5, retryCount);
-    
-    if (retryCount >= maxRetries) {
-      console.error(`[AIPG] Operation failed after ${maxRetries} retries`);
-      return;
-    }
-    
-    console.log(`[AIPG] Retrying operation in ${backoffTime}ms (attempt ${retryCount + 1}/${maxRetries})`);
-    
-    setTimeout(() => {
-      try {
-        operation(...params);
-      } catch (err) {
-        console.error('[AIPG] Retry attempt failed:', err);
-        this.retryWithBackoff(operation, params, retryCount + 1);
-      }
-    }, backoffTime);
+    this.isExtensionContextValid = this.isExtensionContextValid.bind(this);
+    this.validateExtensionContext = this.validateExtensionContext.bind(this);
+    this.attemptContextRecovery = this.attemptContextRecovery.bind(this);
+    this.sendMessageWithRetry = this.sendMessageWithRetry.bind(this);
+    this.clearChat = this.clearChat.bind(this);
+    this.closeInterface = this.closeInterface.bind(this);
   }
 
   /**
    * Initialize the AI Prompting Guide
    */
   async initialize() {
-    if (this.initialized) return;
+    console.log('[AIPG] Initializing AI Prompting Guide...');
     
-    console.log('[AIPG] Initializing AI Prompting Guide');
-    
-    // Check if extension context is valid
-    if (!this.isExtensionContextValid()) {
-      console.error('[AIPG] Extension context is invalid during initialization');
-      // We'll continue anyway and handle errors in individual operations
-    }
-    
-    // Set up message listener for communication with background script
     try {
-      chrome.runtime.onMessage.addListener(this.handleMessage);
-    } catch (err) {
-      console.error('[AIPG] Failed to set up message listener:', err);
-    }
-    
-    // Add keyboard shortcut listener
-    document.addEventListener('keydown', this.handleKeyboardShortcut);
-    
-    // Load user preferences from storage
-    await this.loadUserPreferences();
-    
-    this.initialized = true;
-    console.log('[AIPG] Initialization complete');
-  }
-
-  /**
-   * Handle messages from background script
-   */
-  handleMessage(message, sender, sendResponse) {
-    console.log('[AIPG] Received message:', message);
-    
-    switch (message.action) {
-      case 'toggleInterface':
-        this.toggleInterface();
-        sendResponse({ success: true });
-        break;
-      case 'updateSpecialists':
-        this.loadSpecialists();
-        sendResponse({ success: true });
-        break;
-      case 'updateModels':
-        this.loadModels();
-        sendResponse({ success: true });
-        break;
-      default:
-        sendResponse({ success: false, error: 'Unknown action' });
-    }
-    return true; // Keep the message channel open for async responses
-  }
-
-  /**
-   * Handle keyboard shortcuts
-   * Alt + P  →  Toggle AI Prompting Guide visibility
-   */
-  handleKeyboardShortcut(event) {
-    // Alt+P to toggle interface visibility
-    if (event.altKey && event.key === 'p') {
-      this.toggleInterface();
-      event.preventDefault();
+      // Create the interface
+      this.createInterface();
+      
+      // Load user preferences
+      await this.loadUserPreferences();
+      
+      // Load user notes
+      await this.loadUserNotes();
+      
+      // Load specialists and models
+      await this.loadSpecialists();
+      await this.loadModels();
+      
+      // Validate extension context
+      await this.validateExtensionContext();
+      
+      console.log('[AIPG] AI Prompting Guide initialized successfully');
+    } catch (error) {
+      console.error('[AIPG] Error initializing AI Prompting Guide:', error);
     }
   }
 
   /**
-   * Inject the interface into the page
+   * Create the interface for the AI Prompting Guide
    */
-  injectInterface() {
-    // Prevent duplicate injection
-    if (document.getElementById('ai-prompting-guide-container')) return;
+  createInterface() {
+    // Create container
+    const container = document.createElement('div');
+    container.id = 'ai-prompting-guide-container';
+    container.style.position = 'fixed';
+    container.style.top = `${this.position.y}px`;
+    container.style.left = `${this.position.x}px`;
+    container.style.width = `${this.size.width}px`;
+    container.style.height = `${this.size.height}px`;
+    container.style.backgroundColor = '#e6f3ff'; // Light blue background
+    container.style.border = '1px solid #ccc';
+    container.style.borderRadius = '8px';
+    container.style.boxShadow = '0 2px 10px rgba(0, 0, 0, 0.2)';
+    container.style.zIndex = '9999';
+    container.style.fontFamily = 'Arial, sans-serif';
+    container.style.display = this.isVisible ? 'flex' : 'none';
+    container.style.flexDirection = 'column';
+    container.style.overflow = 'hidden';
     
-    // Create main container
-    this.container = document.createElement('div');
-    this.container.id = 'ai-prompting-guide-container';
-    this.container.className = 'ai-prompting-guide';
-    
-    // Set position and size
-    this.container.style.position = 'fixed';
-    this.container.style.top = `${this.position.y}px`;
-    this.container.style.left = `${this.position.x}px`;
-    this.container.style.width = `${this.size.width}px`;
-    this.container.style.height = `${this.size.height}px`;
-    this.container.style.zIndex = '9999';
-    this.container.style.backgroundColor = '#ffffff';
-    this.container.style.boxShadow = '0 0 10px rgba(0, 0, 0, 0.2)';
-    this.container.style.borderRadius = '8px';
-    this.container.style.overflow = 'hidden';
-    this.container.style.display = 'flex';
-    this.container.style.flexDirection = 'column';
-    
-    // Create header with drag handle
+    // Create header
     const header = document.createElement('div');
-    header.className = 'ai-prompting-guide-header';
     header.style.padding = '10px';
-    header.style.backgroundColor = '#f0f0f0';
-    header.style.borderBottom = '1px solid #ddd';
-    header.style.cursor = 'move';
+    header.style.backgroundColor = '#3498db';
+    header.style.color = 'white';
+    header.style.fontWeight = 'bold';
     header.style.display = 'flex';
     header.style.justifyContent = 'space-between';
     header.style.alignItems = 'center';
+    header.style.cursor = 'move';
+    header.innerText = 'AI Prompting Guide';
     
-    // Add title
-    const title = document.createElement('div');
-    title.textContent = 'AI Prompting Guide';
-    title.style.fontWeight = 'bold';
+    // Add event listeners for dragging
+    header.addEventListener('mousedown', this.handleDragStart);
+    document.addEventListener('mousemove', this.handleDrag);
+    document.addEventListener('mouseup', this.handleDragEnd);
     
-    // Add controls
-    const controls = document.createElement('div');
-    
-    // Add settings button
-    const settingsButton = document.createElement('button');
-    settingsButton.innerHTML = '⚙️';
-    settingsButton.style.background = 'none';
-    settingsButton.style.border = 'none';
-    settingsButton.style.cursor = 'pointer';
-    settingsButton.style.marginRight = '5px';
-    settingsButton.title = 'Settings';
-    settingsButton.onclick = () => this.showSettings();
-    
-    // Add close button
+    // Create close button
     const closeButton = document.createElement('button');
-    closeButton.innerHTML = '✕';
-    closeButton.style.background = 'none';
-    closeButton.style.border = 'none';
+    closeButton.innerText = 'X';
+    closeButton.style.backgroundColor = '#3498db';
+    closeButton.style.color = 'white';
+    closeButton.style.border = '1px solid white';
+    closeButton.style.borderRadius = '50%';
+    closeButton.style.width = '20px';
+    closeButton.style.height = '20px';
+    closeButton.style.display = 'flex';
+    closeButton.style.justifyContent = 'center';
+    closeButton.style.alignItems = 'center';
     closeButton.style.cursor = 'pointer';
-    closeButton.title = 'Close';
-    closeButton.onclick = () => this.closeInterface();
+    closeButton.style.fontWeight = 'bold';
+    closeButton.style.fontSize = '12px';
+    closeButton.style.padding = '0';
+    closeButton.addEventListener('click', this.closeInterface);
     
-    controls.appendChild(settingsButton);
-    controls.appendChild(closeButton);
-    header.appendChild(title);
-    header.appendChild(controls);
+    // Add close button to header
+    header.appendChild(closeButton);
     
-    // Make header draggable
-    header.addEventListener('mousedown', this.startDragging);
+    // Create dropdown container
+    const dropdownContainer = document.createElement('div');
+    dropdownContainer.style.padding = '10px';
+    dropdownContainer.style.display = 'flex';
+    dropdownContainer.style.justifyContent = 'space-between';
+    dropdownContainer.style.backgroundColor = '#f5f5f5';
     
-    // Create content area
-    const content = document.createElement('div');
-    content.className = 'ai-prompting-guide-content';
-    content.style.padding = '10px';
-    content.style.flexGrow = '1';
-    content.style.overflow = 'auto';
-    content.style.display = 'flex';
-    content.style.flexDirection = 'column';
+    // Create specialist dropdown
+    const specialistContainer = document.createElement('div');
+    specialistContainer.style.flex = '1';
+    specialistContainer.style.marginRight = '5px';
     
-    // Create selection area
-    const selectionArea = document.createElement('div');
-    selectionArea.className = 'ai-prompting-guide-selection';
-    selectionArea.style.marginBottom = '10px';
-    
-    // Create specialist selector
     const specialistLabel = document.createElement('label');
-    specialistLabel.textContent = 'Specialist:';
+    specialistLabel.innerText = 'Specialist:';
     specialistLabel.style.display = 'block';
     specialistLabel.style.marginBottom = '5px';
+    specialistLabel.style.fontSize = '12px';
     
-    const specialistSelect = document.createElement('select');
-    specialistSelect.id = 'ai-prompting-guide-specialist';
-    specialistSelect.style.width = '100%';
-    specialistSelect.style.padding = '5px';
-    specialistSelect.style.marginBottom = '10px';
-    specialistSelect.addEventListener('change', () => this.changeSpecialist(specialistSelect.value));
+    const specialistDropdown = document.createElement('select');
+    specialistDropdown.id = 'ai-prompting-guide-specialist';
+    specialistDropdown.style.width = '100%';
+    specialistDropdown.style.padding = '5px';
+    specialistDropdown.addEventListener('change', this.handleSpecialistChange);
     
-    // Create model selector
+    specialistContainer.appendChild(specialistLabel);
+    specialistContainer.appendChild(specialistDropdown);
+    
+    // Create model dropdown
+    const modelContainer = document.createElement('div');
+    modelContainer.style.flex = '1';
+    modelContainer.style.marginLeft = '5px';
+    
     const modelLabel = document.createElement('label');
-    modelLabel.textContent = 'Model:';
+    modelLabel.innerText = 'Model:';
     modelLabel.style.display = 'block';
     modelLabel.style.marginBottom = '5px';
+    modelLabel.style.fontSize = '12px';
     
-    const modelSelect = document.createElement('select');
-    modelSelect.id = 'ai-prompting-guide-model';
-    modelSelect.style.width = '100%';
-    modelSelect.style.padding = '5px';
-    modelSelect.addEventListener('change', () => this.changeModel(modelSelect.value));
+    const modelDropdown = document.createElement('select');
+    modelDropdown.id = 'ai-prompting-guide-model';
+    modelDropdown.style.width = '100%';
+    modelDropdown.style.padding = '5px';
+    modelDropdown.addEventListener('change', this.handleModelChange);
     
-    selectionArea.appendChild(specialistLabel);
-    selectionArea.appendChild(specialistSelect);
-    selectionArea.appendChild(modelLabel);
-    selectionArea.appendChild(modelSelect);
+    modelContainer.appendChild(modelLabel);
+    modelContainer.appendChild(modelDropdown);
     
-    // Create chat area
-    const chatArea = document.createElement('div');
-    chatArea.className = 'ai-prompting-guide-chat';
-    chatArea.style.flexGrow = '1';
-    chatArea.style.display = 'flex';
-    chatArea.style.flexDirection = 'column';
-    chatArea.style.border = '1px solid #ddd';
-    chatArea.style.borderRadius = '5px';
-    chatArea.style.overflow = 'hidden';
+    // Add dropdowns to dropdown container
+    dropdownContainer.appendChild(specialistContainer);
+    dropdownContainer.appendChild(modelContainer);
     
     // Create messages container
     const messagesContainer = document.createElement('div');
     messagesContainer.id = 'ai-prompting-guide-messages';
-    messagesContainer.style.flexGrow = '1';
-    messagesContainer.style.padding = '10px';
+    messagesContainer.style.flex = '1';
     messagesContainer.style.overflowY = 'auto';
+    messagesContainer.style.padding = '10px';
+    messagesContainer.style.backgroundColor = '#fff';
     
-    // Create welcome message
-    const welcomeMessage = document.createElement('div');
-    welcomeMessage.className = 'ai-prompting-guide-message assistant';
-    welcomeMessage.innerHTML = 'Welcome to AI Prompting Guide! Please select a specialist to get started.';
-    welcomeMessage.style.backgroundColor = '#f0f0f0';
-    welcomeMessage.style.padding = '10px';
-    welcomeMessage.style.borderRadius = '5px';
-    welcomeMessage.style.marginBottom = '10px';
-    
-    messagesContainer.appendChild(welcomeMessage);
-    
-    // ---- CLEAR CHAT STRIP -----------------------------------------
-    const clearStrip = document.createElement('div');
-    clearStrip.style.textAlign = 'center';
-    clearStrip.style.borderTop = '1px solid #eee';
-    clearStrip.style.borderBottom = '1px solid #eee';
-    clearStrip.style.padding = '4px 0';
-    clearStrip.style.backgroundColor = '#fafafa';
-
-    const clearBtn = document.createElement('button');
-    clearBtn.textContent = 'Clear Chat';
-    clearBtn.style.fontSize = '12px';
-    clearBtn.style.padding = '2px 8px';
-    clearBtn.style.backgroundColor = '#e0e0e0';
-    clearBtn.style.border = '1px solid #ccc';
-    clearBtn.style.borderRadius = '4px';
-    clearBtn.style.cursor = 'pointer';
-    clearBtn.onclick = () => this.clearMessages();
-
-    clearStrip.appendChild(clearBtn);
-    // ---------------------------------------------------------------
-
-    // Create input area
-    const inputArea = document.createElement('div');
-    inputArea.className = 'ai-prompting-guide-input';
-    inputArea.style.display = 'flex';
-    inputArea.style.padding = '10px';
-    inputArea.style.borderTop = '1px solid #ddd';
+    // Create input container
+    const inputContainer = document.createElement('div');
+    inputContainer.style.padding = '10px';
+    inputContainer.style.borderTop = '1px solid #ccc';
+    inputContainer.style.display = 'flex';
     
     // Create text input
-    const textInput = document.createElement('textarea');
+    const textInput = document.createElement('input');
     textInput.id = 'ai-prompting-guide-input';
-    textInput.placeholder = 'Type your question here...';
-    textInput.style.flexGrow = '1';
+    textInput.type = 'text';
+    textInput.placeholder = 'Type your message...';
+    textInput.style.flex = '1';
     textInput.style.padding = '8px';
+    textInput.style.border = '1px solid #ccc';
     textInput.style.borderRadius = '4px';
-    textInput.style.border = '1px solid #ddd';
-    textInput.style.resize = 'none';
-    textInput.style.minHeight = '60px';
-    textInput.style.marginRight = '10px';
+    textInput.style.marginRight = '5px';
+    textInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        this.handleSendMessage();
+      }
+    });
     
     // Create send button
     const sendButton = document.createElement('button');
-    sendButton.textContent = 'Send';
-    sendButton.style.padding = '8px 15px';
-    sendButton.style.backgroundColor = '#4285f4';
+    sendButton.innerText = 'Send';
+    sendButton.style.padding = '8px 12px';
+    sendButton.style.backgroundColor = '#3498db';
     sendButton.style.color = 'white';
     sendButton.style.border = 'none';
     sendButton.style.borderRadius = '4px';
     sendButton.style.cursor = 'pointer';
-    sendButton.onclick = () => this.sendMessage();
+    sendButton.addEventListener('click', this.handleSendMessage);
     
-    inputArea.appendChild(textInput);
-    inputArea.appendChild(sendButton);
+    // Add text input and send button to input container
+    inputContainer.appendChild(textInput);
+    inputContainer.appendChild(sendButton);
     
-    chatArea.appendChild(messagesContainer);
-    chatArea.appendChild(clearStrip);   // << new clear button strip
-    chatArea.appendChild(inputArea);
-    
-    content.appendChild(selectionArea);
-    content.appendChild(chatArea);
+    // Create clear chat button
+    const clearButton = document.createElement('button');
+    clearButton.innerText = 'Clear Chat';
+    clearButton.style.padding = '8px 12px';
+    clearButton.style.backgroundColor = '#e74c3c';
+    clearButton.style.color = 'white';
+    clearButton.style.border = 'none';
+    clearButton.style.borderRadius = '4px';
+    clearButton.style.cursor = 'pointer';
+    clearButton.style.marginTop = '5px';
+    clearButton.style.width = '100%';
+    clearButton.addEventListener('click', this.clearChat);
     
     // Create resize handle
     const resizeHandle = document.createElement('div');
-    resizeHandle.className = 'ai-prompting-guide-resize';
     resizeHandle.style.position = 'absolute';
-    resizeHandle.style.right = '0';
     resizeHandle.style.bottom = '0';
-    resizeHandle.style.width = '15px';
-    resizeHandle.style.height = '15px';
+    resizeHandle.style.right = '0';
+    resizeHandle.style.width = '10px';
+    resizeHandle.style.height = '10px';
     resizeHandle.style.cursor = 'nwse-resize';
-    resizeHandle.style.backgroundImage = 'linear-gradient(135deg, transparent 50%, #ddd 50%, #ddd 100%)';
-    resizeHandle.addEventListener('mousedown', this.startResizing);
+    resizeHandle.style.backgroundColor = '#ccc';
     
-    // Assemble the interface
-    this.container.appendChild(header);
-    this.container.appendChild(content);
-    this.container.appendChild(resizeHandle);
+    // Add event listeners for resizing
+    resizeHandle.addEventListener('mousedown', this.handleResizeStart);
+    document.addEventListener('mousemove', this.handleResize);
+    document.addEventListener('mouseup', this.handleResizeEnd);
     
-    // Add to page
-    document.body.appendChild(this.container);
+    // Add all elements to container
+    container.appendChild(header);
+    container.appendChild(dropdownContainer);
+    container.appendChild(messagesContainer);
+    container.appendChild(inputContainer);
+    container.appendChild(clearButton);
+    container.appendChild(resizeHandle);
     
-    // Load specialists and models
-    this.loadSpecialists();
-    this.loadModels();
+    // Add container to document
+    document.body.appendChild(container);
     
-    // Add global event listeners for drag and resize
-    document.addEventListener('mousemove', this.onDrag);
-    document.addEventListener('mouseup', this.stopDragging);
-    document.addEventListener('mousemove', this.onResize);
-    document.addEventListener('mouseup', this.stopResizing);
+    // Add welcome message
+    this.addAssistantMessage('Welcome to AI Prompting Guide! Please select a specialist and a model to get started.');
   }
 
   /**
-   * Clear all chat messages and restore welcome bubble
+   * Toggle visibility of the interface
    */
-  clearMessages() {
-    const messagesContainer = document.getElementById('ai-prompting-guide-messages');
-    if (!messagesContainer) return;
-
-    messagesContainer.innerHTML = '';
-
-    // Reset workflow state
-    this.currentStep = null;
-    this.workflowActive = false;
-    this.awaitingConfirmation = false;
-    
-    // Reset session data
-    this.sessionData = {};
-    this.currentQuestion = null;
-
-    // If a specialist is selected, reload its welcome; otherwise generic
-    if (this.currentSpecialist) {
-      // Re-use existing helper to rebuild welcome / placeholder
-      this.changeSpecialist(this.currentSpecialist);
-    } else {
-      const welcome = document.createElement('div');
-      welcome.className = 'ai-prompting-guide-message assistant';
-      welcome.innerHTML = 'Welcome to AI Prompting Guide! Please select a specialist to get started.';
-      welcome.style.backgroundColor = '#f0f0f0';
-      welcome.style.padding = '10px';
-      welcome.style.borderRadius = '5px';
-      welcome.style.marginBottom = '10px';
-      messagesContainer.appendChild(welcome);
-    }
-  }
-
-  /**
-   * Toggle interface visibility (show / hide)
-   */
-  toggleInterface() {
-    if (!this.container) {
-      this.injectInterface();
-      this.isVisible = true;
-    } else {
-      this.isVisible = !this.isVisible;
-      this.container.style.display = this.isVisible ? 'flex' : 'none';
+  toggleVisibility() {
+    this.isVisible = !this.isVisible;
+    const container = document.getElementById('ai-prompting-guide-container');
+    if (container) {
+      container.style.display = this.isVisible ? 'flex' : 'none';
     }
     
-    // Save visibility state
+    // Save user preferences
     this.saveUserPreferences();
   }
 
   /**
-   * Completely close and remove the interface from the DOM.
-   * Users can reopen it via the toolbar icon or Alt + P shortcut.
+   * Close the interface completely (remove from DOM)
    */
   closeInterface() {
-    if (!this.container) return;
+    const container = document.getElementById('ai-prompting-guide-container');
+    if (container) {
+      container.remove();
+    }
+  }
 
-    // Remove DOM node
-    this.container.remove();
-    this.container = null;
+  /**
+   * Handle drag start event
+   */
+  handleDragStart(e) {
+    if (e.target.tagName.toLowerCase() === 'button') return;
+    
+    this.isDragging = true;
+    const container = document.getElementById('ai-prompting-guide-container');
+    const rect = container.getBoundingClientRect();
+    this.dragOffset = {
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top
+    };
+    
+    e.preventDefault();
+  }
 
-    // Update state
-    this.isVisible = false;
+  /**
+   * Handle drag event
+   */
+  handleDrag(e) {
+    if (!this.isDragging) return;
+    
+    const container = document.getElementById('ai-prompting-guide-container');
+    const newX = e.clientX - this.dragOffset.x;
+    const newY = e.clientY - this.dragOffset.y;
+    
+    container.style.left = `${newX}px`;
+    container.style.top = `${newY}px`;
+    
+    this.position = { x: newX, y: newY };
+    
+    e.preventDefault();
+  }
 
-    // Persist state so it remains closed on refresh
+  /**
+   * Handle drag end event
+   */
+  handleDragEnd() {
+    this.isDragging = false;
+    
+    // Save user preferences
     this.saveUserPreferences();
   }
 
   /**
-   * Start dragging the interface
+   * Handle resize start event
    */
-  startDragging(e) {
-    if (e.target.closest('.ai-prompting-guide-header')) {
-      this.isDragging = true;
-      this.dragOffset.x = e.clientX - this.position.x;
-      this.dragOffset.y = e.clientY - this.position.y;
-      e.preventDefault();
-    }
-  }
-
-  /**
-   * Handle dragging motion
-   */
-  onDrag(e) {
-    if (!this.isDragging) return;
-    
-    this.position.x = e.clientX - this.dragOffset.x;
-    this.position.y = e.clientY - this.dragOffset.y;
-    
-    // Ensure the window stays within viewport bounds
-    this.position.x = Math.max(0, Math.min(window.innerWidth - this.size.width, this.position.x));
-    this.position.y = Math.max(0, Math.min(window.innerHeight - this.size.height, this.position.y));
-    
-    if (this.container) {
-      this.container.style.left = `${this.position.x}px`;
-      this.container.style.top = `${this.position.y}px`;
-    }
-  }
-
-  /**
-   * Stop dragging
-   */
-  stopDragging() {
-    if (this.isDragging) {
-      this.isDragging = false;
-      this.saveUserPreferences();
-    }
-  }
-
-  /**
-   * Start resizing the interface
-   */
-  startResizing(e) {
+  handleResizeStart(e) {
     this.isResizing = true;
     e.preventDefault();
   }
 
   /**
-   * Handle resizing motion
+   * Handle resize event
    */
-  onResize(e) {
+  handleResize(e) {
     if (!this.isResizing) return;
     
-    // Calculate new size
-    const newWidth = e.clientX - this.position.x;
-    const newHeight = e.clientY - this.position.y;
+    const container = document.getElementById('ai-prompting-guide-container');
+    const rect = container.getBoundingClientRect();
+    const newWidth = e.clientX - rect.left;
+    const newHeight = e.clientY - rect.top;
     
-    // Set minimum size
-    this.size.width = Math.max(300, newWidth);
-    this.size.height = Math.max(400, newHeight);
-    
-    if (this.container) {
-      this.container.style.width = `${this.size.width}px`;
-      this.container.style.height = `${this.size.height}px`;
+    if (newWidth >= 300 && newHeight >= 400) {
+      container.style.width = `${newWidth}px`;
+      container.style.height = `${newHeight}px`;
+      
+      this.size = { width: newWidth, height: newHeight };
     }
+    
+    e.preventDefault();
   }
 
   /**
-   * Stop resizing
+   * Handle resize end event
    */
-  stopResizing() {
-    if (this.isResizing) {
-      this.isResizing = false;
-      this.saveUserPreferences();
-    }
-  }
-
-  /**
-   * Load specialists from storage with enhanced error handling
-   */
-  async loadSpecialists() {
-    console.log('[AIPG] loadSpecialists() called');
+  handleResizeEnd() {
+    this.isResizing = false;
     
-    // Check if extension context is valid
-    if (!this.isExtensionContextValid()) {
-      console.warn('[AIPG] Extension context invalid during loadSpecialists, using fallback data');
-      if (this.fallbackSpecialists) {
-        this.populateSpecialistDropdown(this.fallbackSpecialists);
-      } else {
-        await this.loadFallbackData();
-      }
-      return;
-    }
-    
-    try {
-      // Use the retry-enabled message sender
-      this.sendMessageWithRetry(
-        { action: 'getSpecialists' },
-        (response) => {
-          if (response && response.specialists && response.specialists.length > 0) {
-            console.log('[AIPG] Received specialists data:', response.specialists.length, 'specialists');
-            this.populateSpecialistDropdown(response.specialists);
-          } else if (response && response.error) {
-            console.error('[AIPG] Error loading specialists:', response.error);
-            this.addAssistantMessage(`<strong>Error:</strong> Failed to load specialists: ${response.error}`);
-            if (this.fallbackSpecialists) {
-              this.populateSpecialistDropdown(this.fallbackSpecialists);
-            }
-          } else {
-            console.warn('[AIPG] No specialists data in response');
-            if (this.fallbackSpecialists) {
-              this.populateSpecialistDropdown(this.fallbackSpecialists);
-            } else {
-              this.loadFallbackData();
-            }
-          }
-        },
-        'loadSpecialists',
-        async () => {
-          // Fallback function
-          if (!this.fallbackSpecialists) {
-            await this.loadFallbackData();
-          } else {
-            this.populateSpecialistDropdown(this.fallbackSpecialists);
-          }
-        }
-      );
-    } catch (error) {
-      console.error('[AIPG] Exception in loadSpecialists:', error);
-      if (!this.fallbackSpecialists) {
-        await this.loadFallbackData();
-      } else {
-        this.populateSpecialistDropdown(this.fallbackSpecialists);
-      }
-    }
-  }
-
-  /**
-   * Load models from storage with enhanced error handling
-   */
-  async loadModels() {
-    console.log('[AIPG] loadModels() called');
-    
-    // Check if extension context is valid
-    if (!this.isExtensionContextValid()) {
-      console.warn('[AIPG] Extension context invalid during loadModels, using fallback data');
-      if (this.fallbackModels) {
-        this.populateModelDropdown(this.fallbackModels);
-      } else {
-        await this.loadFallbackData();
-      }
-      return;
-    }
-    
-    try {
-      // Use the retry-enabled message sender
-      this.sendMessageWithRetry(
-        { action: 'getModels' },
-        (response) => {
-          if (response && response.models && response.models.length > 0) {
-            console.log('[AIPG] Received models data:', response.models.length, 'models');
-            this.populateModelDropdown(response.models);
-          } else if (response && response.error) {
-            console.error('[AIPG] Error loading models:', response.error);
-            this.addAssistantMessage(`<strong>Error:</strong> Failed to load models: ${response.error}`);
-            if (this.fallbackModels) {
-              this.populateModelDropdown(this.fallbackModels);
-            }
-          } else {
-            console.warn('[AIPG] No models data in response');
-            if (this.fallbackModels) {
-              this.populateModelDropdown(this.fallbackModels);
-            } else {
-              this.loadFallbackData();
-            }
-          }
-        },
-        'loadModels',
-        async () => {
-          // Fallback function
-          if (!this.fallbackModels) {
-            await this.loadFallbackData();
-          } else {
-            this.populateModelDropdown(this.fallbackModels);
-          }
-        }
-      );
-    } catch (error) {
-      console.error('[AIPG] Exception in loadModels:', error);
-      if (!this.fallbackModels) {
-        await this.loadFallbackData();
-      } else {
-        this.populateModelDropdown(this.fallbackModels);
-      }
-    }
-  }
-
-  /**
-   * Change the current specialist with enhanced error handling
-   */
-  changeSpecialist(specialistId) {
-    this.currentSpecialist = specialistId;
-    
-    // Reset workflow state
-    this.currentStep = null;
-    this.workflowActive = false;
-    this.awaitingConfirmation = false;
-    
-    // Reset session data
-    this.sessionData = {};
-    this.currentQuestion = null;
-    
-    console.log('[AIPG] Changing specialist to:', specialistId);
-    
-    // Check if we already have fallback data for this specialist
-    if (!this.isExtensionContextValid() && this.fallbackSpecialists) {
-      const specialist = this.fallbackSpecialists.find(s => s.id === specialistId);
-      if (specialist) {
-        console.log('[AIPG] Using fallback data for specialist:', specialistId);
-        this.specialistData = specialist;
-        
-        // Update messages container with specialist description
-        const messagesContainer = document.getElementById('ai-prompting-guide-messages');
-        if (messagesContainer) {
-          messagesContainer.innerHTML = '';
-          
-          // Create a brief description of the specialist
-          let description = '';
-          if (specialist.description) {
-            description = `<p><strong>${specialist.name}</strong> helps you with ${specialist.description.toLowerCase()}. 
-                          This specialist can guide you through a structured workflow to achieve the best results. 
-                          Would you like to begin working with this specialist?</p>`;
-          } else {
-            description = `<p>Would you like to begin working with the ${specialist.name} specialist?</p>`;
-          }
-          
-          // Add the description and Yes/No buttons
-          this.addAssistantMessage(description);
-          this.createYesNoButtons();
-          
-          // Mark that we're awaiting confirmation
-          this.awaitingConfirmation = true;
-        }
-        
-        // Update input placeholder
-        const textInput = document.getElementById('ai-prompting-guide-input');
-        if (textInput) {
-          textInput.placeholder = specialist.placeholderText || 'Type your question here...';
-        }
-        
-        this.saveUserPreferences();
-        return;
-      }
-    }
-    
-    // Request specialist details with retry logic
-    this.sendMessageWithRetry(
-      { action: 'getSpecialistDetails', specialistId },
-      (response) => {
-        if (response && response.specialist) {
-          const specialist = response.specialist;
-          this.specialistData = specialist;
-          
-          // Update messages container with specialist description
-          const messagesContainer = document.getElementById('ai-prompting-guide-messages');
-          if (messagesContainer) {
-            messagesContainer.innerHTML = '';
-            
-            // Create a brief description of the specialist
-            let description = '';
-            if (specialist.description) {
-              description = `<p><strong>${specialist.name}</strong> helps you with ${specialist.description.toLowerCase()}. 
-                            This specialist can guide you through a structured workflow to achieve the best results. 
-                            Would you like to begin working with this specialist?</p>`;
-            } else {
-              description = `<p>Would you like to begin working with the ${specialist.name} specialist?</p>`;
-            }
-            
-            // Add the description and Yes/No buttons
-            this.addAssistantMessage(description);
-            this.createYesNoButtons();
-            
-            // Mark that we're awaiting confirmation
-            this.awaitingConfirmation = true;
-          }
-          
-          // Update input placeholder
-          const textInput = document.getElementById('ai-prompting-guide-input');
-          if (textInput) {
-            textInput.placeholder = specialist.placeholderText || 'Type your question here...';
-          }
-        } else if (response && response.error) {
-          console.error('[AIPG] Error getting specialist details:', response.error);
-          this.addAssistantMessage(`<strong>Error:</strong> Failed to load specialist details: ${response.error}`);
-        }
-      },
-      'getSpecialistDetails',
-      async () => {
-        // Fallback when we can't get specialist details
-        if (!this.fallbackSpecialists) {
-          await this.loadFallbackData();
-        } else {
-          const specialist = this.fallbackSpecialists.find(s => s.id === specialistId) || this.fallbackSpecialists[0];
-          this.specialistData = specialist;
-          
-          const messagesContainer = document.getElementById('ai-prompting-guide-messages');
-          if (messagesContainer) {
-            messagesContainer.innerHTML = '';
-            
-            this.addAssistantMessage(
-              `<strong>⚠️ Notice:</strong> Unable to load full details for the ${specialist.name} specialist. ` +
-              `Using limited offline data. Some features may be unavailable.`
-            );
-            
-            let description = '';
-            if (specialist.description) {
-              description = `<p><strong>${specialist.name}</strong> helps you with ${specialist.description.toLowerCase()}. 
-                            Would you like to begin working with this specialist?</p>`;
-            } else {
-              description = `<p>Would you like to begin working with the ${specialist.name} specialist?</p>`;
-            }
-            
-            this.addAssistantMessage(description);
-            this.createYesNoButtons();
-            this.awaitingConfirmation = true;
-          }
-        }
-      }
-    );
-    
+    // Save user preferences
     this.saveUserPreferences();
   }
 
   /**
-   * Create Yes/No buttons for user confirmation
+   * Clear the chat messages
    */
-  createYesNoButtons() {
+  clearChat() {
     const messagesContainer = document.getElementById('ai-prompting-guide-messages');
-    if (!messagesContainer) return;
-    
-    const buttonContainer = document.createElement('div');
-    buttonContainer.style.display = 'flex';
-    buttonContainer.style.justifyContent = 'center';
-    buttonContainer.style.gap = '10px';
-    buttonContainer.style.marginTop = '10px';
-    
-    const yesButton = document.createElement('button');
-    yesButton.textContent = 'Yes';
-    yesButton.style.padding = '8px 20px';
-    yesButton.style.backgroundColor = '#4285f4';
-    yesButton.style.color = 'white';
-    yesButton.style.border = 'none';
-    yesButton.style.borderRadius = '4px';
-    yesButton.style.cursor = 'pointer';
-    yesButton.onclick = () => this.handleWorkflowResponse('yes');
-    
-    const noButton = document.createElement('button');
-    noButton.textContent = 'No';
-    noButton.style.padding = '8px 20px';
-    noButton.style.backgroundColor = '#f1f1f1';
-    noButton.style.color = '#333';
-    noButton.style.border = '1px solid #ccc';
-    noButton.style.borderRadius = '4px';
-    noButton.style.cursor = 'pointer';
-    noButton.onclick = () => this.handleWorkflowResponse('no');
-    
-    buttonContainer.appendChild(yesButton);
-    buttonContainer.appendChild(noButton);
-    
-    const messageElement = document.createElement('div');
-    messageElement.className = 'ai-prompting-guide-message assistant';
-    messageElement.style.backgroundColor = '#f0f0f0';
-    messageElement.style.padding = '10px';
-    messageElement.style.borderRadius = '5px';
-    messageElement.style.marginBottom = '10px';
-    messageElement.appendChild(buttonContainer);
-    
-    messagesContainer.appendChild(messageElement);
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
-  }
-
-  /**
-   * Handle user response to workflow confirmation
-   */
-  handleWorkflowResponse(response) {
-    if (!this.awaitingConfirmation) return;
-    
-    this.awaitingConfirmation = false;
-    
-    if (response === 'yes') {
-      // User confirmed, start the workflow
-      this.addAssistantMessage(`Great! Let's get started with the ${this.specialistData?.name || 'selected'} workflow.`);
-      this.startWorkflow();
-    } else {
-      // User declined, show a message
-      this.addAssistantMessage('No problem. Feel free to select another specialist or ask any questions.');
+    if (messagesContainer) {
+      // Remove all messages
+      messagesContainer.innerHTML = '';
+      
+      // Add welcome message back
+      this.addAssistantMessage('Welcome to AI Prompting Guide! Please select a specialist and a model to get started.');
+      
+      // Reset workflow state
+      this.workflowActive = false;
+      this.currentStep = null;
+      this.currentQuestion = null;
+      this.stepResponses = {};
+      this.awaitingConfirmation = false;
+      this.confirmationCallback = null;
+      
+      // Reset LLM conversation history
+      this.llmConversationHistory = [];
     }
   }
 
   /**
-   * Start the specialist workflow
+   * Handle send message event
+   */
+  async handleSendMessage() {
+    const textInput = document.getElementById('ai-prompting-guide-input');
+    if (!textInput) return;
+    
+    const userMessage = textInput.value.trim();
+    if (!userMessage) return;
+    
+    // Clear input
+    textInput.value = '';
+    
+    // Add user message to chat
+    const messagesContainer = document.getElementById('ai-prompting-guide-messages');
+    if (messagesContainer) {
+      const msg = document.createElement('div');
+      msg.className = 'ai-prompting-guide-message user';
+      msg.textContent = userMessage;
+      msg.style.backgroundColor = '#dcf8c6';
+      msg.style.padding = '10px';
+      msg.style.borderRadius = '5px';
+      msg.style.marginBottom = '10px';
+      msg.style.alignSelf = 'flex-end';
+      msg.style.maxWidth = '80%';
+      
+      messagesContainer.appendChild(msg);
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+    
+    // Add to LLM conversation history
+    this.llmConversationHistory.push({ role: 'user', content: userMessage });
+    
+    // Limit conversation history length
+    if (this.llmConversationHistory.length > this.llmMaxHistoryLength * 2) {
+      this.llmConversationHistory = this.llmConversationHistory.slice(-this.llmMaxHistoryLength);
+    }
+    
+    // Process the message and generate a response
+    this.generateResponse(userMessage);
+  }
+
+  /**
+   * Load specialists from the background script
+   */
+  async loadSpecialists() {
+    try {
+      console.log('[AIPG] Loading specialists...');
+      
+      // Check if extension context is valid
+      if (!this.isExtensionContextValid()) {
+        console.warn('[AIPG] Extension context invalid during loadSpecialists');
+        await this.attemptContextRecovery();
+      }
+      
+      // Use the retry-enabled message sender
+      const response = await this.sendMessageWithRetry({ action: 'getSpecialists' });
+      
+      if (response && response.specialists && response.specialists.length > 0) {
+        console.log('[AIPG] Received specialists data:', response.specialists.length, 'specialists');
+        this.specialists = response.specialists;
+        
+        // Populate specialist dropdown
+        const specialistDropdown = document.getElementById('ai-prompting-guide-specialist');
+        if (specialistDropdown) {
+          // Clear existing options
+          specialistDropdown.innerHTML = '';
+          
+          // Add default option
+          const defaultOption = document.createElement('option');
+          defaultOption.value = '';
+          defaultOption.textContent = '-- Select Specialist --';
+          specialistDropdown.appendChild(defaultOption);
+          
+          // Add specialists
+          this.specialists.forEach(specialist => {
+            const option = document.createElement('option');
+            option.value = specialist.name;
+            option.textContent = specialist.name;
+            specialistDropdown.appendChild(option);
+          });
+          
+          // Set current specialist if available
+          if (this.currentSpecialist) {
+            specialistDropdown.value = this.currentSpecialist;
+          }
+        } else {
+          console.error('[AIPG] Specialist dropdown not found');
+        }
+      } else {
+        console.error('[AIPG] Failed to load specialists or empty response', response);
+        
+        // Add fallback specialists if needed
+        if (!this.specialists || this.specialists.length === 0) {
+          console.warn('[AIPG] Using fallback specialists');
+          this.specialists = [
+            { name: 'AI Research Specialist', defaultPromptingTechniques: [] },
+            { name: 'Data Analysis Expert', defaultPromptingTechniques: [] },
+            { name: 'Content Creation Specialist', defaultPromptingTechniques: [] }
+          ];
+          
+          // Populate specialist dropdown with fallbacks
+          const specialistDropdown = document.getElementById('ai-prompting-guide-specialist');
+          if (specialistDropdown) {
+            // Clear existing options
+            specialistDropdown.innerHTML = '';
+            
+            // Add default option
+            const defaultOption = document.createElement('option');
+            defaultOption.value = '';
+            defaultOption.textContent = '-- Select Specialist --';
+            specialistDropdown.appendChild(defaultOption);
+            
+            // Add fallback specialists
+            this.specialists.forEach(specialist => {
+              const option = document.createElement('option');
+              option.value = specialist.name;
+              option.textContent = specialist.name;
+              specialistDropdown.appendChild(option);
+            });
+          }
+        }
+      }
+    } catch (error) {
+      console.error('[AIPG] Error loading specialists:', error);
+    }
+  }
+
+  /**
+   * Load models from the background script
+   */
+  async loadModels() {
+    try {
+      console.log('[AIPG] Loading models...');
+      
+      // Check if extension context is valid
+      if (!this.isExtensionContextValid()) {
+        console.warn('[AIPG] Extension context invalid during loadModels');
+        await this.attemptContextRecovery();
+      }
+      
+      // Use the retry-enabled message sender
+      const response = await this.sendMessageWithRetry({ action: 'getModels' });
+      
+      if (response && response.models && response.models.length > 0) {
+        console.log('[AIPG] Received models data:', response.models.length, 'models');
+        this.models = response.models;
+        
+        // Populate model dropdown
+        const modelDropdown = document.getElementById('ai-prompting-guide-model');
+        if (modelDropdown) {
+          // Clear existing options
+          modelDropdown.innerHTML = '';
+          
+          // Add default option
+          const defaultOption = document.createElement('option');
+          defaultOption.value = '';
+          defaultOption.textContent = '-- Select Model --';
+          modelDropdown.appendChild(defaultOption);
+          
+          // Add models
+          this.models.forEach(model => {
+            const option = document.createElement('option');
+            option.value = model.name;
+            option.textContent = model.name;
+            modelDropdown.appendChild(option);
+          });
+          
+          // Set current model if available
+          if (this.currentModel) {
+            modelDropdown.value = this.currentModel;
+          }
+        } else {
+          console.error('[AIPG] Model dropdown not found');
+        }
+      } else {
+        console.error('[AIPG] Failed to load models or empty response', response);
+        
+        // Add fallback models if needed
+        if (!this.models || this.models.length === 0) {
+          console.warn('[AIPG] Using fallback models');
+          this.models = [
+            { name: 'GPT-4', capabilities: [] },
+            { name: 'Claude 3', capabilities: [] },
+            { name: 'Gemini Pro', capabilities: [] }
+          ];
+          
+          // Populate model dropdown with fallbacks
+          const modelDropdown = document.getElementById('ai-prompting-guide-model');
+          if (modelDropdown) {
+            // Clear existing options
+            modelDropdown.innerHTML = '';
+            
+            // Add default option
+            const defaultOption = document.createElement('option');
+            defaultOption.value = '';
+            defaultOption.textContent = '-- Select Model --';
+            modelDropdown.appendChild(defaultOption);
+            
+            // Add fallback models
+            this.models.forEach(model => {
+              const option = document.createElement('option');
+              option.value = model.name;
+              option.textContent = model.name;
+              modelDropdown.appendChild(option);
+            });
+          }
+        }
+      }
+    } catch (error) {
+      console.error('[AIPG] Error loading models:', error);
+    }
+  }
+
+  /**
+   * Handle specialist change event
+   */
+  async handleSpecialistChange(e) {
+    const specialistName = e.target.value;
+    this.currentSpecialist = specialistName;
+    
+    console.log('[AIPG] Specialist changed to:', specialistName);
+    
+    // Save user preferences
+    this.saveUserPreferences();
+    
+    // Find specialist data
+    if (specialistName) {
+      const specialist = this.specialists.find(s => s.name === specialistName);
+      if (specialist) {
+        this.specialistData = specialist;
+        
+        // Check if workflow should be started
+        if (specialist.defaultPromptingTechniques && specialist.defaultPromptingTechniques.length > 0) {
+          // Start workflow with first step
+          this.startWorkflow();
+        }
+      }
+    }
+  }
+
+  /**
+   * Handle model change event
+   */
+  handleModelChange(e) {
+    const modelName = e.target.value;
+    this.currentModel = modelName;
+    
+    console.log('[AIPG] Model changed to:', modelName);
+    
+    // Save user preferences
+    this.saveUserPreferences();
+  }
+
+  /**
+   * Start the workflow process
    */
   startWorkflow() {
-    if (!this.specialistData) return;
+    if (!this.specialistData || !this.specialistData.defaultPromptingTechniques) {
+      console.warn('[AIPG] No prompting techniques found for specialist');
+      return;
+    }
     
+    console.log('[AIPG] Starting workflow for', this.currentSpecialist);
+    
+    // Reset workflow state
     this.workflowActive = true;
     this.currentStep = 1;
-    this.sessionData = {}; // Initialize session data
+    this.currentQuestion = null;
+    this.stepResponses = {};
+    this.awaitingConfirmation = false;
     
-    // Display the first step
+    // Display first step
     this.displayCurrentStep();
   }
 
   /**
-   * Move to the next step in the workflow
+   * Display the current workflow step
+   */
+  displayCurrentStep() {
+    if (!this.workflowActive || !this.currentStep || !this.specialistData) {
+      return;
+    }
+    
+    const stepData = this.specialistData.defaultPromptingTechniques.find(s => s.step === this.currentStep);
+    if (!stepData) {
+      console.warn('[AIPG] Step data not found for step', this.currentStep);
+      return;
+    }
+    
+    console.log('[AIPG] Displaying step', this.currentStep);
+    
+    // Format step message
+    let stepMessage = `<strong>Step ${this.currentStep}: ${stepData.title}</strong><br>${stepData.description}<br><br>`;
+    
+    // Add specific questions for the first step
+    if (this.currentStep === 1) {
+      stepMessage += `<strong>What is the topic you want to research?</strong><br>`;
+      this.currentQuestion = 'topic';
+    }
+    
+    this.addAssistantMessage(stepMessage);
+  }
+
+  /**
+   * Move to the next workflow step
    */
   moveToNextStep() {
-    if (!this.workflowActive || !this.specialistData) return;
+    if (!this.workflowActive || !this.currentStep || !this.specialistData) {
+      return;
+    }
     
-    const totalSteps = this.specialistData.defaultPromptingTechniques?.length || 0;
+    // Check if current step is complete
+    if (!this.isStepComplete(this.currentStep)) {
+      this.addAssistantMessage('Please complete the current step before moving to the next one.');
+      return;
+    }
     
-    if (this.currentStep < totalSteps) {
-      this.currentStep++;
-      this.currentQuestion = null; // Reset current question for new step
+    // Move to next step
+    const nextStep = this.currentStep + 1;
+    const nextStepData = this.specialistData.defaultPromptingTechniques.find(s => s.step === nextStep);
+    
+    if (nextStepData) {
+      this.currentStep = nextStep;
+      this.currentQuestion = null;
       this.displayCurrentStep();
     } else {
-      // Workflow complete - generate final prompt
+      // Final step reached, generate final prompt
       const finalPrompt = this.generateFinalPrompt();
       this.addAssistantMessage(`<strong>🎉 Your CRISP Framework Prompt:</strong><br><pre>${finalPrompt}</pre><br><p>Copy this prompt to use with your preferred AI model.</p>`);
       this.workflowActive = false;
@@ -1191,341 +762,389 @@ class AIPromptingGuide {
   }
 
   /**
-   * Display the current step in the workflow
+   * Collect response for the current step
    */
-  displayCurrentStep() {
-    if (!this.workflowActive || !this.specialistData || !this.currentStep) return;
-    
-    const steps = this.specialistData.defaultPromptingTechniques || [];
-    if (steps.length === 0) {
-      this.addAssistantMessage('This specialist does not have a defined workflow.');
-      this.workflowActive = false;
-      return;
+  async collectStepResponse(userMessage) {
+    if (!this.workflowActive || !this.currentStep) {
+      return null;
     }
     
-    // Find the current step
-    const step = steps.find(s => s.step === this.currentStep);
-    if (!step) {
-      this.addAssistantMessage('Unable to find the current step in the workflow.');
-      return;
-    }
-    
-    // Build the step display based on which step we're on
-    let html = `<strong>Step ${step.step}/${steps.length} – ${step.title}</strong><br>`;
-    
-    // For Step 1, show specific research questions
-    if (this.currentStep === 1) {
-      html += `<em>${step.description}</em><br><br>`;
-      html += `<ol>
-        <li>What is the topic you want to research?</li>
-        <li>Do you have a specific focus or exclusions?</li>
-      </ol>`;
-      html += `<p>Please enter your research topic in the text input below.</p>`;
+    // Store response based on current question
+    if (this.currentQuestion) {
+      // Store the response
+      if (!this.stepResponses[this.currentStep]) {
+        this.stepResponses[this.currentStep] = {};
+      }
       
-      // Set current question to topic
-      this.currentQuestion = 'topic';
-    } else {
-      // For other steps, use the default display format
-      html += `<em>${step.description}</em><br><br>`;
-      html += `<strong>Expected Output:</strong> ${step.output}<br><br>`;
+      this.stepResponses[this.currentStep][this.currentQuestion] = userMessage;
       
-      // Find the prompt template for this step
-      let promptTemplate = '';
-      if (this.specialistData.commonPatterns) {
-        const pattern = this.specialistData.commonPatterns.find(p => p.step === this.currentStep);
-        if (pattern && pattern.promptTemplate) {
-          promptTemplate = pattern.promptTemplate;
+      // Handle specific questions
+      if (this.currentStep === 1) {
+        if (this.currentQuestion === 'topic') {
+          // Store topic
+          const topic = userMessage;
+          
+          // Ask for focus/exclusions
+          this.currentQuestion = 'focus';
+          return `Thank you! <strong>Do you have a specific focus or exclusions for your research on "${topic}"?</strong>`;
+        } else if (this.currentQuestion === 'focus') {
+          // Store focus
+          const focus = userMessage;
+          const topic = this.stepResponses[1].topic;
+          
+          // Generate research questions
+          const researchQuestions = this.generateResearchQuestions(topic, focus);
+          
+          // Generate scope outline
+          const scopeOutline = this.generateScopeOutline(topic, focus);
+          
+          // Generate data sources
+          const dataSources = this.generateDataSources(topic);
+          
+          // Store generated content
+          this.stepResponses[1].researchQuestions = researchQuestions;
+          this.stepResponses[1].scopeOutline = scopeOutline;
+          this.stepResponses[1].dataSources = dataSources;
+          
+          // Mark step as complete
+          this.currentQuestion = null;
+          
+          // Format response
+          let response = `<strong>Great! Based on your input, I've prepared the following research framework:</strong><br><br>`;
+          response += `<strong>Topic:</strong> ${topic}<br>`;
+          response += `<strong>Focus/Exclusions:</strong> ${focus}<br><br>`;
+          
+          response += `<strong>Research Questions:</strong><br><ul>`;
+          researchQuestions.forEach(q => {
+            response += `<li>${q}</li>`;
+          });
+          response += `</ul><br>`;
+          
+          response += `<strong>Scope Outline:</strong><br>${scopeOutline}<br><br>`;
+          
+          response += `<strong>Recommended Data Sources:</strong><br><ul>`;
+          dataSources.forEach(ds => {
+            response += `<li>${ds}</li>`;
+          });
+          response += `</ul><br>`;
+          
+          response += `When you're ready, type "Next Step" to continue to Step 2.`;
+          
+          return response;
         }
-      }
-      
-      if (promptTemplate) {
-        html += `<strong>Prompt Template:</strong><br><code>${promptTemplate}</code><br><br>`;
-        html += 'Replace placeholders (e.g. <code>[topic]</code>) with your specifics.';
-      } else {
-        html += 'Please provide details for this step.';
-      }
-    }
-    
-    this.addAssistantMessage(html);
-  }
-
-  /**
-   * Collect and store user response for the current step
-   * @param {string} userMessage - The user's message
-   * @returns {string|null} - Dynamic guidance based on the input, or null if not applicable
-   */
-  collectStepResponse(userMessage) {
-    // Initialize step data if not exists
-    if (!this.sessionData[this.currentStep]) {
-      this.sessionData[this.currentStep] = {};
-    }
-    
-    // For Step 1, handle topic and focus questions
-    if (this.currentStep === 1) {
-      if (this.currentQuestion === 'topic') {
-        // Store the research topic
-        this.sessionData[this.currentStep].topic = userMessage;
-        
-        // Update current question to focus
-        this.currentQuestion = 'focus';
-        
-        // Generate dynamic guidance based on the topic
-        return this.generateDynamicGuidance(1, userMessage);
-      } else if (this.currentQuestion === 'focus') {
-        // Store the focus/exclusions
-        this.sessionData[this.currentStep].focus = userMessage;
-        
-        // Mark step as complete
-        this.currentQuestion = null;
-        
-        // Generate final guidance for step 1
-        return this.generateDynamicGuidance(1, this.sessionData[this.currentStep].topic, userMessage);
+      } else if (this.currentStep === 2) {
+        // Handle step 2 questions
+        this.currentQuestion = null; // Mark step as complete
+        return `Thank you for providing that information. I've stored your response for Step 2.<br><br>When you're ready, type "Next Step" to continue.`;
+      } else if (this.currentStep === 3) {
+        // Handle step 3 questions
+        this.currentQuestion = null; // Mark step as complete
+        return `Thank you for providing that information. I've stored your response for Step 3.<br><br>When you're ready, type "Next Step" to continue.`;
+      } else if (this.currentStep === 4) {
+        // Handle step 4 questions
+        this.currentQuestion = null; // Mark step as complete
+        return `Thank you for providing that information. I've stored your response for Step 4.<br><br>When you're ready, type "Next Step" to continue.`;
+      } else if (this.currentStep === 5) {
+        // Handle step 5 questions
+        this.currentQuestion = null; // Mark step as complete
+        return `Thank you for providing that information. I've stored your response for Step 5.<br><br>When you're ready, type "Next Step" to continue.`;
+      } else if (this.currentStep === 6) {
+        // Handle step 6 questions
+        this.currentQuestion = null; // Mark step as complete
+        return `Thank you for providing that information. I've stored your response for Step 6.<br><br>When you're ready, type "Next Step" to continue.`;
+      } else if (this.currentStep === 7) {
+        // Handle step 7 questions
+        this.currentQuestion = null; // Mark step as complete
+        return `Thank you for providing that information. I've stored your response for Step 7.<br><br>Your CRISP Framework prompt is now ready!`;
       }
     }
-    
-    // For other steps (to be implemented later)
-    // Store the response for the current step
-    this.sessionData[this.currentStep].response = userMessage;
     
     return null;
   }
 
   /**
-   * Generate dynamic guidance based on user inputs
-   * @param {number} step - The current step number
-   * @param {string} topic - The research topic (for step 1)
-   * @param {string} focus - The focus/exclusions (for step 1)
-   * @returns {string} - HTML content with dynamic guidance
+   * Generate research questions based on topic and focus
    */
-  generateDynamicGuidance(step, topic = null, focus = null) {
-    if (step === 1 && topic) {
-      // Generate 5-7 research questions based on the topic
-      const researchQuestions = this.generateResearchQuestions(topic);
-      
-      // Generate scope outline
-      const scopeOutline = this.generateScopeOutline(topic, focus);
-      
-      // Generate data sources and report format
-      const dataSources = this.generateDataSources(topic);
-      const reportFormat = this.generateReportFormat(topic);
-      
-      let html = `<strong>Research Plan for: ${topic}</strong><br><br>`;
-      html += `<strong>Research Questions:</strong><br>`;
-      html += `<ol>`;
-      researchQuestions.forEach(question => {
-        html += `<li>${question}</li>`;
-      });
-      html += `</ol><br>`;
-      
-      html += `<strong>Research Scope:</strong><br>${scopeOutline}<br><br>`;
-      html += `<strong>Suggested Data Types & Sources:</strong><br>${dataSources}<br><br>`;
-      html += `<strong>Recommended Report Format:</strong><br>${reportFormat}<br><br>`;
-      
-      if (!focus) {
-        html += `<p>Do you have any specific focus areas or exclusions for this research? If not, simply type "No".</p>`;
-      } else {
-        html += `<p>Great! Your research scope is now defined. Type "Next Step" to continue to Step 2.</p>`;
-      }
-      
-      return html;
-    }
-    
-    // For other steps (to be implemented later)
-    return null;
-  }
-
-  /**
-   * Generate 5-7 research questions based on the topic
-   * @param {string} topic - The research topic
-   * @returns {string[]} - Array of research questions
-   */
-  generateResearchQuestions(topic) {
-    // This would ideally use the AI to generate questions
-    // For now, we'll create template questions
-    return [
+  generateResearchQuestions(topic, focus) {
+    // Generate 5-7 research questions based on the topic and focus
+    const questions = [
       `What are the key components of ${topic}?`,
       `How has ${topic} evolved over time?`,
       `What are the current challenges in ${topic}?`,
-      `What are the leading theories or approaches to ${topic}?`,
-      `How is ${topic} implemented in different contexts?`,
-      `What are the future trends for ${topic}?`,
-      `What metrics are used to evaluate success in ${topic}?`
+      `What are the future trends in ${topic}?`,
+      `How does ${topic} impact related fields?`
     ];
+    
+    // Add focus-specific questions if provided
+    if (focus && focus.toLowerCase() !== 'none' && focus.toLowerCase() !== 'no') {
+      questions.push(`How does ${focus} specifically relate to ${topic}?`);
+      questions.push(`What are the limitations of ${topic} in the context of ${focus}?`);
+    }
+    
+    return questions;
   }
 
   /**
    * Generate scope outline based on topic and focus
-   * @param {string} topic - The research topic
-   * @param {string} focus - The focus/exclusions
-   * @returns {string} - Scope outline text
    */
   generateScopeOutline(topic, focus) {
-    let scope = `This research will examine ${topic} with particular attention to its key aspects, current state, and future developments.`;
+    // Generate scope outline based on the topic and focus
+    let outline = `This research will cover the fundamental aspects of ${topic}`;
     
-    if (focus && focus.toLowerCase() !== "no") {
-      scope += ` The research will specifically focus on ${focus}.`;
+    if (focus && focus.toLowerCase() !== 'none' && focus.toLowerCase() !== 'no') {
+      outline += ` with a specific focus on ${focus}`;
     }
     
-    return scope;
+    outline += `. It will include historical context, current state, key challenges, and future directions.`;
+    
+    return outline;
   }
 
   /**
-   * Generate data sources suggestions
-   * @param {string} topic - The research topic
-   * @returns {string} - HTML content with data sources
+   * Generate data sources based on topic
    */
   generateDataSources(topic) {
-    return `
-      <ul>
-        <li>Academic journals and research papers on ${topic}</li>
-        <li>Industry reports and white papers</li>
-        <li>Expert interviews and case studies</li>
-        <li>Statistical databases and surveys</li>
-        <li>Market analysis and trend reports</li>
-      </ul>
-    `;
+    // Generate recommended data sources based on the topic
+    return [
+      `Academic journals related to ${topic}`,
+      `Industry reports on ${topic}`,
+      `Expert interviews with professionals in ${topic}`,
+      `Case studies of successful implementations in ${topic}`,
+      `Recent news articles about ${topic}`
+    ];
   }
 
   /**
-   * Generate report format recommendation
-   * @param {string} topic - The research topic
-   * @returns {string} - HTML content with report format
+   * Handle workflow response (yes/no)
    */
-  generateReportFormat(topic) {
-    return `
-      <ul>
-        <li><strong>Executive Summary:</strong> Key findings on ${topic}</li>
-        <li><strong>Introduction:</strong> Background and research objectives</li>
-        <li><strong>Methodology:</strong> Research approach and data sources</li>
-        <li><strong>Findings:</strong> Detailed analysis with supporting evidence</li>
-        <li><strong>Discussion:</strong> Interpretation of results and implications</li>
-        <li><strong>Recommendations:</strong> Actionable insights based on findings</li>
-        <li><strong>Conclusion:</strong> Summary of key points and future directions</li>
-      </ul>
-    `;
+  handleWorkflowResponse(response) {
+    if (!this.awaitingConfirmation || !this.confirmationCallback) {
+      return;
+    }
+    
+    // Call the confirmation callback with the response
+    this.confirmationCallback(response);
+    
+    // Reset confirmation state
+    this.awaitingConfirmation = false;
+    this.confirmationCallback = null;
   }
 
   /**
-   * Check if the current step has all required responses
-   * @param {number} step - The step number to check
-   * @returns {boolean} - True if step is complete
+   * Check if a step is complete
    */
   isStepComplete(step) {
-    if (!this.sessionData[step]) return false;
-    
-    if (step === 1) {
-      return this.sessionData[step].topic && 
-             (this.sessionData[step].focus !== undefined);
+    if (!step || !this.stepResponses[step]) {
+      return false;
     }
     
-    // For other steps (to be implemented later)
-    return this.sessionData[step].response !== undefined;
+    // For step 1, check if we have topic and focus
+    if (step === 1) {
+      return this.stepResponses[1].topic && this.stepResponses[1].focus;
+    }
+    
+    // For other steps, check if we have any response
+    return Object.keys(this.stepResponses[step]).length > 0;
   }
 
   /**
-   * Generate final CRISP framework prompt when all steps are complete
-   * @returns {string} - The complete CRISP framework prompt
+   * Generate final prompt based on collected responses
    */
   generateFinalPrompt() {
-    // For now, we'll focus on generating a prompt based on Step 1 data
-    // This will be expanded as we implement more steps
+    // Get topic and focus from step 1
+    const topic = this.stepResponses[1]?.topic || 'the specified topic';
+    const focus = this.stepResponses[1]?.focus || '';
     
-    // Extract expert type based on the research topic
-    const topic = this.sessionData[1]?.topic || "";
-    let expertType = "research specialist";
+    // Generate CRISP framework prompt
+    let prompt = `Act as a ${this.currentSpecialist} and provide a comprehensive analysis on ${topic}`;
     
-    // Simple logic to determine expert type based on topic keywords
-    if (topic.match(/technology|software|AI|computing|digital/i)) {
-      expertType = "technology researcher";
-    } else if (topic.match(/business|market|industry|economic|finance/i)) {
-      expertType = "business analyst";
-    } else if (topic.match(/science|biology|chemistry|physics|medical/i)) {
-      expertType = "scientific researcher";
-    } else if (topic.match(/history|culture|society|people|anthropology/i)) {
-      expertType = "social science researcher";
+    if (focus && focus.toLowerCase() !== 'none' && focus.toLowerCase() !== 'no') {
+      prompt += ` with a focus on ${focus}`;
     }
     
-    // Build CRISP framework prompt
-    let prompt = `Act as a ${expertType} with expertise in ${topic}.\n\n`;
+    prompt += `.\n\nPlease structure your response using the CRISP framework:\n\n`;
+    prompt += `Context: Provide background information on ${topic}.\n`;
+    prompt += `Research: Present key findings from academic and industry sources.\n`;
+    prompt += `Insights: Analyze the implications and patterns in the data.\n`;
+    prompt += `Strategy: Recommend actionable steps based on the analysis.\n`;
+    prompt += `Practical Application: Explain how to implement the strategy effectively.\n\n`;
     
-    // Add context from all steps
-    prompt += "CONTEXT:\n";
-    prompt += `Research Topic: ${this.sessionData[1]?.topic || ""}\n`;
-    prompt += `Focus/Exclusions: ${this.sessionData[1]?.focus || "None specified"}\n`;
-    // Would add more context from other steps here
-    
-    // Add request
-    prompt += "\nREQUEST:\n";
-    prompt += `Conduct a comprehensive analysis of ${topic}`;
-    if (this.sessionData[1]?.focus && this.sessionData[1]?.focus.toLowerCase() !== "no") {
-      prompt += ` with specific focus on ${this.sessionData[1]?.focus}`;
+    // Add any specific requirements from other steps
+    if (this.stepResponses[2]) {
+      prompt += `Additional requirements: ${Object.values(this.stepResponses[2]).join(', ')}\n\n`;
     }
-    prompt += ".\n\n";
     
-    // Add specific instructions
-    prompt += "SPECIFIC INSTRUCTIONS:\n";
-    prompt += "1. Begin with an executive summary of key findings\n";
-    prompt += "2. Provide historical context and current state\n";
-    prompt += "3. Analyze major trends, challenges, and opportunities\n";
-    prompt += "4. Include relevant data, statistics, and examples\n";
-    prompt += "5. Conclude with actionable recommendations\n\n";
-    
-    // Add preferences
-    prompt += "PREFERENCES:\n";
-    prompt += "- Use clear, concise language\n";
-    prompt += "- Structure the response with headings and bullet points\n";
-    prompt += "- Include citations where appropriate\n";
-    prompt += "- Focus on evidence-based insights\n";
+    prompt += `Please be thorough, evidence-based, and provide specific examples where relevant.`;
     
     return prompt;
   }
 
   /**
-   * Change the current model with enhanced error handling
+   * Check if the extension context is valid
    */
-  changeModel(modelId) {
-    this.currentModel = modelId;
-    console.log('[AIPG] Changed model to:', modelId);
-    this.saveUserPreferences();
+  isExtensionContextValid() {
+    // If we've recently validated, return the cached result
+    const now = Date.now();
+    if (now - this.lastContextValidation < this.contextValidationInterval) {
+      return this.extensionContextValid;
+    }
+    
+    // Otherwise, we need to validate again
+    return false;
   }
 
   /**
-   * Send a message
+   * Validate the extension context
    */
-  sendMessage() {
-    const textInput = document.getElementById('ai-prompting-guide-input');
-    if (!textInput || !textInput.value.trim()) return;
-    
-    const userMessage = textInput.value.trim();
-    textInput.value = '';
-    
-    // Add user message to chat
-    const messagesContainer = document.getElementById('ai-prompting-guide-messages');
-    if (messagesContainer) {
-      const messageElement = document.createElement('div');
-      messageElement.className = 'ai-prompting-guide-message user';
-      messageElement.textContent = userMessage;
-      messageElement.style.backgroundColor = '#e6f2ff';
-      messageElement.style.padding = '10px';
-      messageElement.style.borderRadius = '5px';
-      messageElement.style.marginBottom = '10px';
-      messageElement.style.alignSelf = 'flex-end';
+  async validateExtensionContext() {
+    try {
+      console.log('[AIPG] Validating extension context...');
       
-      messagesContainer.appendChild(messageElement);
-      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      // Try to send a simple message to the background script
+      const response = await chrome.runtime.sendMessage({ action: 'ping' });
       
-      // Process the message and generate a response
-      this.generateResponse(userMessage);
+      if (response && response.status === 'ok') {
+        console.log('[AIPG] Extension context is valid');
+        this.extensionContextValid = true;
+        this.contextRecoveryAttempts = 0; // Reset recovery attempts counter
+      } else {
+        console.warn('[AIPG] Extension context validation failed: Invalid response', response);
+        this.extensionContextValid = false;
+      }
+    } catch (error) {
+      console.warn('[AIPG] Extension context validation failed:', error);
+      this.extensionContextValid = false;
+    }
+    
+    // Update last validation timestamp
+    this.lastContextValidation = Date.now();
+    
+    return this.extensionContextValid;
+  }
+
+  /**
+   * Attempt to recover the extension context
+   */
+  async attemptContextRecovery() {
+    if (this.contextRecoveryAttempts >= this.maxRecoveryAttempts) {
+      console.warn('[AIPG] Maximum context recovery attempts reached');
+      return false;
+    }
+    
+    try {
+      console.log('[AIPG] Attempting context recovery...');
+      
+      // Increment recovery attempts counter
+      this.contextRecoveryAttempts++;
+      
+      // Wait with exponential backoff
+      const backoffTime = Math.pow(2, this.contextRecoveryAttempts) * 100;
+      await new Promise(resolve => setTimeout(resolve, backoffTime));
+      
+      // Validate context
+      const isValid = await this.validateExtensionContext();
+      
+      if (isValid) {
+        console.log('[AIPG] Context recovery successful');
+        return true;
+      } else {
+        console.warn('[AIPG] Context recovery failed');
+        return false;
+      }
+    } catch (error) {
+      console.error('[AIPG] Error during context recovery:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Send a message to the background script with retry logic
+   */
+  async sendMessageWithRetry(message, callback = null) {
+    try {
+      // Try to send the message
+      if (callback) {
+        return new Promise((resolve) => {
+          chrome.runtime.sendMessage(message, (response) => {
+            callback(response);
+            resolve(response);
+          });
+        });
+      } else {
+        return await chrome.runtime.sendMessage(message);
+      }
+    } catch (error) {
+      console.warn('[AIPG] Error sending message:', error);
+      
+      // Check if extension context is valid
+      if (!this.isExtensionContextValid()) {
+        // Try to recover context
+        const recovered = await this.attemptContextRecovery();
+        
+        if (recovered) {
+          // Retry sending the message
+          console.log('[AIPG] Retrying message after context recovery');
+          if (callback) {
+            return new Promise((resolve) => {
+              chrome.runtime.sendMessage(message, (response) => {
+                callback(response);
+                resolve(response);
+              });
+            });
+          } else {
+            return await chrome.runtime.sendMessage(message);
+          }
+        }
+      }
+      
+      // Return null if we couldn't recover or send the message
+      return null;
     }
   }
 
   /**
    * Generate a response based on user input with enhanced error handling
    */
-  generateResponse(userMessage) {
+  async generateResponse(userMessage) {
     if (!this.currentSpecialist || !this.currentModel) {
       this.addAssistantMessage('Please select both a specialist and a model to continue.');
       return;
+    }
+    
+    // First try to process with LLM if enabled
+    if (this.llmEnabled) {
+      try {
+        const userIntent = await this.parseUserIntent(userMessage);
+        console.log('[AIPG] Detected user intent:', userIntent);
+        
+        // Handle different intents appropriately
+        if (userIntent.intent === 'workflow_navigation') {
+          // Handle workflow navigation commands
+          if (userIntent.action === 'next_step') {
+            this.moveToNextStep();
+            return;
+          } else if (userIntent.action === 'go_to_step' && userIntent.step) {
+            this.currentStep = userIntent.step;
+            this.currentQuestion = null;
+            this.displayCurrentStep();
+            return;
+          } else if (userIntent.action === 'show_all_steps') {
+            this.showAllSteps();
+            return;
+          }
+        } else if (userIntent.intent === 'confirmation' && this.awaitingConfirmation) {
+          // Handle yes/no confirmation
+          if (userIntent.confirmed) {
+            this.handleWorkflowResponse('yes');
+          } else {
+            this.handleWorkflowResponse('no');
+          }
+          return;
+        }
+      } catch (e) {
+        console.warn('[AIPG] LLM intent parsing failed:', e);
+        // Continue with rule-based processing
+      }
     }
     
     // Check if we're waiting for confirmation
@@ -1570,7 +1189,7 @@ class AIPromptingGuide {
       }
       
       // Try to collect response for current step
-      const dynamicResponse = this.collectStepResponse(userMessage);
+      const dynamicResponse = await this.collectStepResponse(userMessage);
       if (dynamicResponse) {
         this.addAssistantMessage(dynamicResponse);
         
@@ -1594,231 +1213,279 @@ class AIPromptingGuide {
     // Check if extension context is valid
     if (!this.isExtensionContextValid()) {
       console.warn('[AIPG] Extension context invalid during generateResponse');
-      this.addAssistantMessage(
-        '<strong>⚠️ Notice:</strong> Unable to communicate with the extension background service. ' +
-        'The extension may need to be reloaded. Please try refreshing the page or reloading the extension.'
-      );
+      
+      // Attempt recovery – if it succeeds we will re-enter generateResponse,
+      // otherwise we fall back to offline-only processing.
+      const recovered = await this.attemptContextRecovery();
+      if (!recovered) {
+        this.addAssistantMessage(
+          '<strong>[ERROR]</strong> The Chrome extension context is unavailable. ' +
+          'Responses will be generated locally only.'
+        );
+      }
+    }
+
+    /* ------------------------------------------------------------------
+     * 1.  Use the local workflow engine / fallback logic first
+     * ------------------------------------------------------------------ */
+    if (this.workflowActive) {
+      // (The earlier part of generateResponse has already handled
+      //  collection & navigation.  Nothing else to do here.)
       return;
     }
-    
-    // Request response from background script with retry logic
-    const requestPayload = {
-      action: 'generateResponse',
-      specialistId: this.currentSpecialist,
-      modelId: this.currentModel,
-      message: userMessage,
-      workflowActive: this.workflowActive,
-      currentStep: this.currentStep
-    };
 
-    const TIMEOUT_MS = 8000; // 8-second safety timeout
-    
-    console.log('[AIPG] Sending generateResponse request:', requestPayload);
-    
-    this.sendMessageWithRetry(
-      requestPayload,
-      (response) => {
-        // Normal success path
-        if (response && response.message) {
-          this.addAssistantMessage(response.message);
-          
-          // If the workflow is active, provide a "Next Step" prompt
-          if (this.workflowActive) {
-            const steps = this.specialistData?.defaultPromptingTechniques || [];
-            if (this.currentStep < steps.length) {
-              this.addAssistantMessage('When you\'re ready, type "Next Step" to continue to the next step.');
-            }
-          }
-          return;
-        }
-
-        // Background script returned an explicit error
-        if (response && response.error) {
-          console.error('[AIPG] Background error in generateResponse:', response.error);
-          this.addAssistantMessage(`<strong>Error:</strong> ${response.error}`);
-          return;
-        }
-
-        // Fallback: unknown shape
-        console.warn('[AIPG] Unexpected response format in generateResponse:', response);
-        this.addAssistantMessage('I apologize, but I was unable to generate a response due to an unexpected issue. Please try again.');
-      },
-      'generateResponse',
-      () => {
-        // Fallback when communication fails completely
-        console.error('[AIPG] Communication failed in generateResponse');
-        this.addAssistantMessage(
-          '<strong>⚠️ Communication Error:</strong> Unable to reach the extension background service. ' +
-          'This could be due to the extension being in an invalid state. Please try reloading the extension from the Extensions page ' +
-          '(chrome://extensions) and refreshing this page.'
-        );
-        
-        // If we're in a workflow, provide a basic response
-        if (this.workflowActive && this.specialistData) {
-          const stepInfo = this.specialistData.defaultPromptingTechniques?.find(s => s.step === this.currentStep);
-          if (stepInfo) {
-            this.addAssistantMessage(
-              `<strong>Offline Guidance:</strong> For ${stepInfo.title}, try to ${stepInfo.description.toLowerCase()}. ` +
-              `When ready, type "Next Step" to continue to step ${this.currentStep + 1}.`
-            );
-          }
-        }
+    /* ------------------------------------------------------------------
+     * 2.  Forward request to the LLM if enabled
+     * ------------------------------------------------------------------ */
+    let assistantReply = null;
+    if (this.llmEnabled && this.llmApiKey) {
+      try {
+        assistantReply = await this.processWithLLM(userMessage);
+      } catch (err) {
+        console.error('[AIPG] processWithLLM failed:', err);
+        assistantReply = null;
       }
+    }
+
+    /* ------------------------------------------------------------------
+     * 3.  Fallback basic echo behaviour
+     * ------------------------------------------------------------------ */
+    if (!assistantReply) {
+      assistantReply =
+        "I'm sorry – I couldn't reach the language model. " +
+        "Please check your network connection or API key.";
+    }
+
+    this.addAssistantMessage(assistantReply);
+  }
+
+  /* ================================================================
+   *  LLM-related helper methods
+   * ================================================================ */
+
+  /**
+   * Send the entire conversation + current user message to the LLM and
+   * return the assistant's reply.
+   */
+  async processWithLLM(userMessage) {
+    // Maintain short history
+    const history = this.llmConversationHistory
+      .slice(-this.llmMaxHistoryLength)
+      .concat([{ role: 'user', content: userMessage }]);
+
+    const prompt = this.generateLLMPrompt(history);
+    const rawResponse = await this.callLLMAPI(prompt);
+
+    if (!rawResponse) return null;
+
+    // Basic sanitation
+    const trimmed = rawResponse.trim();
+    this.llmConversationHistory.push({ role: 'assistant', content: trimmed });
+    return trimmed;
+  }
+
+  /**
+   * Store frequently-used context so that every LLM call can include it
+   */
+  updateLLMContext(updates = {}) {
+    this.llmContext = { ...this.llmContext, ...updates };
+  }
+
+  /**
+   * Generate a prompt string for the LLM given current context + history.
+   */
+  generateLLMPrompt(history) {
+    let systemPrompt =
+      "You are AI Prompting Guide, an expert assistant that helps construct " +
+      "high-quality prompts using the CRISP framework.\n\n";
+
+    if (this.currentSpecialist) {
+      systemPrompt += `Current specialist: ${this.currentSpecialist}\n`;
+    }
+    if (this.currentModel) {
+      systemPrompt += `Target model: ${this.currentModel}\n`;
+    }
+
+    // Append any custom context
+    Object.entries(this.llmContext).forEach(([k, v]) => {
+      systemPrompt += `${k}: ${JSON.stringify(v)}\n`;
+    });
+
+    // Concatenate conversation
+    const convo = history
+      .map((h) => `${h.role === 'user' ? 'User' : 'Assistant'}: ${h.content}`)
+      .join('\n');
+
+    return `${systemPrompt}\n\n${convo}\nAssistant:`;
+  }
+
+  /**
+   * Very small wrapper around fetch to call the LLM endpoint.
+   * NOTE:  This is deliberately generic – users can customise endpoint.
+   */
+  async callLLMAPI(prompt) {
+    if (!this.llmEndpoint || !this.llmApiKey) return null;
+
+    try {
+      const res = await fetch(this.llmEndpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${this.llmApiKey}`
+        },
+        body: JSON.stringify({
+          prompt,
+          max_tokens: 512,
+          temperature: 0.7
+        })
+      });
+
+      if (!res.ok) {
+        console.error('[AIPG] LLM API HTTP error', res.status);
+        return null;
+      }
+
+      const data = await res.json();
+      return data.choices?.[0]?.text || null;
+    } catch (err) {
+      console.error('[AIPG] LLM fetch failed:', err);
+      return null;
+    }
+  }
+
+  /**
+   * Parse the LLM output to detect user intent (stub implementation)
+   */
+  async parseUserIntent(/* userMessage */) {
+    // Minimal heuristic: not implemented – return default
+    return { intent: 'unknown' };
+  }
+
+  /* ================================================================
+   *  UI helper methods
+   * ================================================================ */
+
+  /**
+   * Render all workflow steps in a single assistant message.
+   */
+  showAllSteps() {
+    if (!this.specialistData?.defaultPromptingTechniques) return;
+
+    const stepsHtml = this.specialistData.defaultPromptingTechniques
+      .map(
+        (s) =>
+          `<li><strong>Step ${s.step} – ${s.title}</strong>: ${s.description}</li>`
+      )
+      .join('');
+
+    this.addAssistantMessage(
+      `<p><strong>Workflow Overview:</strong></p><ol>${stepsHtml}</ol>`
     );
   }
 
   /**
-   * Show all steps in the current workflow
+   * Append assistant message bubble to the chat.
    */
-  showAllSteps() {
-    if (!this.specialistData) return;
-    
-    const steps = this.specialistData.defaultPromptingTechniques || [];
-    if (steps.length === 0) {
-      this.addAssistantMessage('This specialist does not have a defined workflow.');
-      return;
-    }
-    
-    let html = `<strong>${this.specialistData.icon || '🔍'} ${this.specialistData.name} Workflow</strong><br><br>`;
-    html += '<ol>';
-    steps.forEach(step => {
-      html += `<li><strong>${step.title}</strong>: ${step.description}</li>`;
-    });
-    html += '</ol>';
-    html += '<br>Type "Start Step 1", "Next Step", "Previous Step" or "Step X" to navigate.';
-    
-    this.addAssistantMessage(html);
+  addAssistantMessage(content) {
+    const messagesContainer = document.getElementById(
+      'ai-prompting-guide-messages'
+    );
+    if (!messagesContainer) return;
+
+    const msg = document.createElement('div');
+    msg.className = 'ai-prompting-guide-message assistant';
+    msg.innerHTML = content;
+    msg.style.backgroundColor = '#f0f0f0';
+    msg.style.padding = '10px';
+    msg.style.borderRadius = '5px';
+    msg.style.marginBottom = '10px';
+
+    messagesContainer.appendChild(msg);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
   }
 
   /**
-   * Add an assistant message to the chat
-   */
-  addAssistantMessage(message) {
-    const messagesContainer = document.getElementById('ai-prompting-guide-messages');
-    if (messagesContainer) {
-      const messageElement = document.createElement('div');
-      messageElement.className = 'ai-prompting-guide-message assistant';
-      messageElement.innerHTML = message;
-      messageElement.style.backgroundColor = '#f0f0f0';
-      messageElement.style.padding = '10px';
-      messageElement.style.borderRadius = '5px';
-      messageElement.style.marginBottom = '10px';
-      
-      messagesContainer.appendChild(messageElement);
-      messagesContainer.scrollTop = messagesContainer.scrollHeight;
-    }
-  }
-
-  /**
-   * Show settings panel
+   * Display a very simple settings modal (placeholder).
    */
   showSettings() {
-    // Implementation for settings panel
-    alert('Settings panel will be implemented in a future update.');
+    alert(
+      'Settings panel is under construction.\n\n' +
+        'For now you can enable LLM integration via the developer console:\n' +
+        'aipg.llmEnabled = true;\n' +
+        "aipg.llmApiKey   = 'YOUR_KEY';\n" +
+        "aipg.llmEndpoint = 'https://api.openai.com/v1/completions';"
+    );
   }
 
-  /**
-   * Load user notes for a specific specialist
-   */
-  loadUserNotes(specialistId) {
-    // Implementation for loading user notes
-    // This will be expanded in future updates
+  /* ================================================================
+   *  Persistence helpers (simple localStorage wrappers)
+   * ================================================================ */
+
+  async loadUserNotes() {
+    try {
+      const raw = localStorage.getItem('AIPG_notes');
+      this.userNotes = raw ? JSON.parse(raw) : {};
+    } catch (e) {
+      console.warn('[AIPG] Failed to load notes', e);
+    }
   }
 
-  /**
-   * Save user notes
-   */
   saveUserNotes() {
-    // Implementation for saving user notes
-    // This will be expanded in future updates
+    try {
+      localStorage.setItem('AIPG_notes', JSON.stringify(this.userNotes));
+    } catch (e) {
+      console.warn('[AIPG] Failed to save notes', e);
+    }
   }
 
-  /**
-   * Save custom rules
-   */
   saveCustomRules() {
-    // Implementation for saving custom rules
-    // This will be expanded in future updates
+    try {
+      localStorage.setItem('AIPG_rules', JSON.stringify(this.customRules));
+    } catch (e) {
+      console.warn('[AIPG] Failed to save rules', e);
+    }
   }
 
-  /**
-   * Load user preferences from storage with enhanced error handling
-   */
   async loadUserPreferences() {
     try {
-      console.log('[AIPG] Loading user preferences');
-      
-      // Check if extension context is valid
-      if (!this.isExtensionContextValid()) {
-        console.warn('[AIPG] Extension context invalid during loadUserPreferences');
-        return; // Use defaults
+      const raw = localStorage.getItem('AIPG_prefs');
+      if (raw) {
+        const prefs = JSON.parse(raw);
+        this.position = prefs.position || this.position;
+        this.size = prefs.size || this.size;
+        this.isVisible = prefs.isVisible ?? this.isVisible;
+        this.currentSpecialist = prefs.currentSpecialist || this.currentSpecialist;
+        this.currentModel = prefs.currentModel || this.currentModel;
       }
-      
-      chrome.storage.local.get(['aiPromptingGuidePrefs'], (result) => {
-        if (chrome.runtime.lastError) {
-          console.error('[AIPG] Error loading preferences:', chrome.runtime.lastError);
-          return;
-        }
-        
-        if (result.aiPromptingGuidePrefs) {
-          const prefs = result.aiPromptingGuidePrefs;
-          console.log('[AIPG] Loaded user preferences:', prefs);
-          
-          // Load position and size
-          if (prefs.position) this.position = prefs.position;
-          if (prefs.size) this.size = prefs.size;
-          
-          // Load specialist and model
-          if (prefs.currentSpecialist) this.currentSpecialist = prefs.currentSpecialist;
-          if (prefs.currentModel) this.currentModel = prefs.currentModel;
-          
-          // Load notes and rules
-          if (prefs.userNotes) this.userNotes = prefs.userNotes;
-          if (prefs.customRules) this.customRules = prefs.customRules;
-        } else {
-          console.log('[AIPG] No saved preferences found, using defaults');
-        }
-      });
-    } catch (error) {
-      console.error('[AIPG] Failed to load preferences:', error);
+    } catch (e) {
+      console.warn('[AIPG] Failed to load preferences', e);
     }
   }
 
-  /**
-   * Save user preferences to storage with enhanced error handling
-   */
   saveUserPreferences() {
+    const prefs = {
+      position: this.position,
+      size: this.size,
+      isVisible: this.isVisible,
+      currentSpecialist: this.currentSpecialist,
+      currentModel: this.currentModel
+    };
     try {
-      // Check if extension context is valid
-      if (!this.isExtensionContextValid()) {
-        console.warn('[AIPG] Extension context invalid during saveUserPreferences');
-        return;
-      }
-      
-      const prefs = {
-        position: this.position,
-        size: this.size,
-        currentSpecialist: this.currentSpecialist,
-        currentModel: this.currentModel,
-        userNotes: this.userNotes,
-        customRules: this.customRules
-      };
-      
-      console.log('[AIPG] Saving user preferences:', prefs);
-      
-      chrome.storage.local.set({ aiPromptingGuidePrefs: prefs }, () => {
-        if (chrome.runtime.lastError) {
-          console.error('[AIPG] Error saving preferences:', chrome.runtime.lastError);
-        } else {
-          console.log('[AIPG] User preferences saved successfully');
-        }
-      });
-    } catch (error) {
-      console.error('[AIPG] Failed to save preferences:', error);
+      localStorage.setItem('AIPG_prefs', JSON.stringify(prefs));
+    } catch (e) {
+      console.warn('[AIPG] Failed to save preferences', e);
     }
   }
-}
+} // END CLASS
 
-// Initialize the AI Prompting Guide
-const aiPromptingGuide = new AIPromptingGuide();
-aiPromptingGuide.initialize();
+/* ================================================================
+ *  Bootstrap
+ * ================================================================ */
+
+const aipg = new AIPromptingGuide();
+// Initialise as soon as possible – but wait for DOM ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', aipg.initialize);
+} else {
+  aipg.initialize();
+}
