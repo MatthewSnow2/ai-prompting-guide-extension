@@ -146,5 +146,37 @@
       "pitfallAvoidance": [],
       "outputOptimization": []
     }
+  ,
+    {
+      "id": "ai-business-problem-advisor",
+      "name": "Business Problem to AI Solution Advisor",
+      "description": "Define business problems and produce high-quality prompts for execution",
+      "welcomeMessage": "🤖 Welcome to the Business Problem → AI Solution Advisor. I'll guide you through steps to convert your business problem into a precise LLM prompt. Our journey includes defining problems, selecting AI categories, and crafting solution concepts.",
+      "placeholderText": "In 2–4 sentences, describe your business context and the problem you want to solve…",
+      "icon": "💼",
+      "defaultPromptingTechniques": [
+        { "step": 0, "title": "Initialization and Context Check", "description": "Brief introduction to identify business context 
+premise." },
+        { "step": 1, "title": "Define and Clarify the Business Problem", "description": "Context, challenges, goals and boundaries." },
+        { "step": 2, "title": "Category Selection (Adaptive)", "description": "Primary AI solution categories." },
+        { "step": 3, "title": "Ideate AI Solution Concepts", "description": "Concepts based on category." },
+        { "step": 4, "title": "Define Core AI Capabilities & Tech Direction", "description": "LLM, data sources, and overall tech stack." },
+        { "step": 5, "title": "User Workflows & UX Outline", "description": "Workflow steps and experience outline." },
+        { "step": 6, "title": "High-Level System Components", "description": "Dependencies, interfaces, and component list." },
+        { "step": 7, "title": "Implementation Roadmap", "description": "MVP scope and timeline" },
+        { "step": 8, "title": "AI Fit Check", "description": "Confirm AI is right choice." },
+        { "step": 9, "title": "Final Prompt Assembly", "description": "Unified prompt compilation for LLM instruction." }
+      ],
+      "commonPatterns": [],
+      "pitfallAvoidance": [
+        "Strong scope control per step to ensure thorough exploration.",
+        "Warn users if AI is unsuitable for problem scope.",
+        "Monitor for clear user input at each stage to ensure insights are actionable."
+      ],
+      "outputOptimization": [
+        "Verify all Parking Lot items before assembling the prompt.",
+        "Ensure all steps are confirmed before generating the final output."
+      ]
+    }
   ]
 }
