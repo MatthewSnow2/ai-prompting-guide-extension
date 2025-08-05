@@ -365,54 +365,81 @@
       "id": "data-analysis-support",
       "name": "Data Analysis Support",
       "description": "Exploratory queries, visualization ideas, statistical tips",
-      "welcomeMessage": "📊 Data Analysis Support specialist - Not available yet. This specialist is currently under development and will be available in a future update.",
-      "placeholderText": "This specialist is not available yet. Please select another specialist.",
+      "welcomeMessage": "📊 Data Analysis Support specialist activated! I'll guide you through a 7-step process to perform comprehensive data analysis from initial exploration through actionable insights and recommendations. \n\nCurrent Step: [1/7] Data Understanding & Exploration\nNext: Type \"Start Step 1\" or describe your dataset and analysis goals to begin.",
+      "placeholderText": "Describe your data analysis challenge (e.g., \"Analyze customer churn patterns in subscription data\") or type \"Start Step 1\" to begin…",
       "icon": "📊",
-      "defaultPromptingTechniques": [],
-      "commonPatterns": [],
-      "pitfallAvoidance": [],
-      "outputOptimization": []
+      "defaultPromptingTechniques": [
+        { "step": 1, "title": "Data Understanding & Exploration", "description": "Initial data assessment, profiling, and quality evaluation", "tools": "Python pandas/R, Jupyter/RStudio, ChatGPT/Claude for analysis guidance", "output": "Data profile report with structure, quality issues, and initial observations" },
+        { "step": 2, "title": "Question Definition & Hypothesis", "description": "Define analytical questions and form testable hypotheses", "tools": "ChatGPT/Claude for question refinement, domain expert consultation", "output": "Clear analytical questions with measurable hypotheses and success criteria" },
+        { "step": 3, "title": "Data Cleaning & Preparation", "description": "Handle missing data, outliers, and transformations for analysis", "tools": "Python pandas/numpy, R dplyr/tidyr, OpenRefine, data validation scripts", "output": "Clean, analysis-ready dataset with documented preprocessing steps" },
+        { "step": 4, "title": "Exploratory Data Analysis", "description": "Statistical summaries, correlation analysis, and pattern discovery", "tools": "Python matplotlib/seaborn, R ggplot2, Tableau/Power BI, statistical libraries", "output": "Comprehensive EDA report with statistical summaries and initial insights" },
+        { "step": 5, "title": "Visualization & Patterns", "description": "Create effective charts and identify meaningful trends", "tools": "Python plotly/matplotlib, R ggplot2, Tableau/Power BI, D3.js", "output": "Dashboard with visualizations highlighting key patterns and trends" },
+        { "step": 6, "title": "Statistical Analysis & Testing", "description": "Apply appropriate statistical methods to validate findings", "tools": "Python scipy/statsmodels, R statistical packages, SPSS/SAS", "output": "Statistical test results with confidence intervals and significance levels" },
+        { "step": 7, "title": "Insights & Recommendations", "description": "Synthesize findings into actionable business insights", "tools": "ChatGPT/Claude for insight synthesis, presentation tools, reporting frameworks", "output": "Executive summary with actionable recommendations and implementation roadmap" }
+      ],
+      "commonPatterns": [
+        { "step": 1, "promptTemplate": "Analyze dataset structure for: **[dataset description]**. Examine: 1) Data types, dimensions, and basic statistics, 2) Missing values patterns and completeness, 3) Data quality issues (duplicates, inconsistencies, outliers), 4) Key variables and their distributions, 5) Temporal patterns if time-series data, 6) Potential data collection biases or limitations. Example: 'Profile a customer transaction dataset with 50,000 rows covering purchase history, demographics, and churn status over 2 years.'" },
+        { "step": 2, "promptTemplate": "Define analysis questions for: **[data profile results]**. Formulate: 1) Primary business question to answer, 2) Specific hypotheses to test with data, 3) Key metrics and KPIs to calculate, 4) Success criteria for actionable insights, 5) Stakeholder questions and concerns to address, 6) Potential confounding variables to consider. Example: 'Define hypotheses for analyzing customer churn: \"Customers with higher engagement scores have lower churn rates\" and \"Seasonal patterns affect subscription renewals.\"'" },
+        { "step": 3, "promptTemplate": "Clean and prepare data for: **[analysis questions and hypotheses]**. Process: 1) Handle missing values using appropriate imputation or exclusion strategies, 2) Identify and treat outliers based on domain knowledge, 3) Create derived variables and feature engineering, 4) Normalize or standardize variables for analysis, 5) Split data for training/validation if needed, 6) Document all preprocessing decisions and their rationale. Maintain data lineage and preprocessing reproducibility." },
+        { "step": 4, "promptTemplate": "Conduct exploratory data analysis on: **[cleaned dataset]**. Generate: 1) Descriptive statistics for all key variables, 2) Correlation matrices and relationship analysis, 3) Distribution analysis and normality testing, 4) Cross-tabulations and contingency analysis, 5) Time-series decomposition if applicable, 6) Segment-based analysis for different groups. Look for unexpected patterns, outliers, and relationships that warrant further investigation." },
+        { "step": 5, "promptTemplate": "Create visualizations for: **[EDA findings]**. Design: 1) Distribution plots and histograms for key variables, 2) Scatter plots and correlation heatmaps, 3) Time-series plots with trend and seasonality, 4) Box plots and violin plots for group comparisons, 5) Geographic maps if location data exists, 6) Interactive dashboards for stakeholder exploration. Focus on charts that clearly communicate insights and support decision-making." },
+        { "step": 6, "promptTemplate": "Apply statistical tests to: **[visualization insights]**. Conduct: 1) Hypothesis testing with appropriate statistical tests (t-tests, chi-square, ANOVA), 2) Confidence interval calculations for key estimates, 3) Regression analysis to quantify relationships, 4) Time-series analysis for forecasting if applicable, 5) A/B testing or experimental design analysis, 6) Power analysis and effect size calculations. Report statistical significance and practical significance separately." },
+        { "step": 7, "promptTemplate": "Synthesize insights and recommendations from: **[statistical analysis results]**. Create: 1) Executive summary highlighting key findings, 2) Actionable business recommendations with supporting evidence, 3) Implementation roadmap with priorities and timelines, 4) Risk assessment and potential limitations, 5) Monitoring and measurement plan for ongoing tracking, 6) Next steps for further analysis or data collection. Frame insights in business context with clear value proposition." }
+      ],
+      "pitfallAvoidance": [
+        "If user jumps to advanced analysis without exploring data, guide back to Step 1: 'Let's first understand the data structure and quality before diving into complex analysis.'",
+        "When hypotheses are too vague, push for specificity: 'Vague hypotheses lead to unclear results. Let's make these testable and measurable.'",
+        "If critical data cleaning is skipped, warn about impact: 'Dirty data leads to unreliable insights. Let's properly clean and validate the data first.'",
+        "For correlation vs causation confusion, clarify: 'Remember that correlation doesn't imply causation. Let's be careful about causal claims.'",
+        "When statistical significance is misinterpreted, educate: 'Statistical significance doesn't always mean practical significance. Let's consider effect sizes and business impact.'",
+        "If visualizations are unclear or misleading, insist on clarity: 'Charts should illuminate, not confuse. Let's make these visualizations more intuitive.'"
+      ],
+      "outputOptimization": [
+        "After Step 7, provide a complete analysis package with code, visualizations, statistical results, and executive summary.",
+        "Suggest creating reproducible analysis scripts and documentation for future use and validation.",
+        "Recommend setting up automated monitoring dashboards to track key metrics over time.",
+        "Offer templates for common analysis types (customer segmentation, A/B testing, forecasting) to accelerate future projects.",
+        "Provide guidance on communicating statistical results to non-technical stakeholders with appropriate caveats and context."
+      ]
     },
     {
       "id": "documentation-writing",
       "name": "Documentation Writing",
       "description": "User guides, API docs, SOPs, knowledge-base articles",
-      "welcomeMessage": "Documentation Writing specialist on deck. What docs can I help you draft or improve?",
-      "placeholderText": "Describe your documentation need (e.g., \"Create quick-start guide for our API SDK\")…",
+      "welcomeMessage": "📄 Documentation Writing specialist activated! I'll guide you through a 7-step process to create comprehensive, user-friendly documentation that effectively communicates complex information. \n\nCurrent Step: [1/7] Audience & Purpose Definition\nNext: Type \"Start Step 1\" or describe your documentation project to begin.",
+      "placeholderText": "Describe your documentation need (e.g., \"Create user guide for API SDK\") or type \"Start Step 1\" to begin…",
       "icon": "📄",
-      "defaultPromptingTechniques": [],
-      "commonPatterns": [],
-      "pitfallAvoidance": [],
-      "outputOptimization": []
-    },
-    {
-      "id": "ai-business-problem-advisor",
-      "name": "Business Problem to AI Solution Advisor",
-      "description": "Define business problems and produce high-quality prompts for execution",
-      "welcomeMessage": "🤖 Welcome to the Business Problem → AI Solution Advisor. I'll guide you through steps to convert your business problem into a precise LLM prompt. Our journey includes defining problems, selecting AI categories, and crafting solution concepts.",
-      "placeholderText": "In 2–4 sentences, describe your business context and the problem you want to solve…",
-      "icon": "💼",
       "defaultPromptingTechniques": [
-        { "step": 0, "title": "Initialization and Context Check", "description": "Brief introduction to identify business context premise." },
-        { "step": 1, "title": "Define and Clarify the Business Problem", "description": "Context, challenges, goals and boundaries." },
-        { "step": 2, "title": "Category Selection (Adaptive)", "description": "Primary AI solution categories." },
-        { "step": 3, "title": "Ideate AI Solution Concepts", "description": "Concepts based on category." },
-        { "step": 4, "title": "Define Core AI Capabilities & Tech Direction", "description": "LLM, data sources, and overall tech stack." },
-        { "step": 5, "title": "User Workflows & UX Outline", "description": "Workflow steps and experience outline." },
-        { "step": 6, "title": "High-Level System Components", "description": "Dependencies, interfaces, and component list." },
-        { "step": 7, "title": "Implementation Roadmap", "description": "MVP scope and timeline" },
-        { "step": 8, "title": "AI Fit Check", "description": "Confirm AI is right choice." },
-        { "step": 9, "title": "Final Prompt Assembly", "description": "Unified prompt compilation for LLM instruction." }
+        { "step": 1, "title": "Audience & Purpose Definition", "description": "Define target users, their knowledge level, and documentation goals", "tools": "ChatGPT/Claude, user research surveys, stakeholder interviews", "output": "Audience personas and clear documentation objectives" },
+        { "step": 2, "title": "Content Audit & Gap Analysis", "description": "Assess existing documentation and identify missing information", "tools": "Content analysis tools, ChatGPT/Claude, documentation review checklist", "output": "Gap analysis report with content prioritization matrix" },
+        { "step": 3, "title": "Information Architecture", "description": "Structure content hierarchy, navigation, and user journey flows", "tools": "Miro/Lucidchart/Figma, ChatGPT/Claude, sitemap generators", "output": "Content structure with navigation flow and information hierarchy" },
+        { "step": 4, "title": "Content Creation & Writing", "description": "Draft clear, concise documentation with consistent style and tone", "tools": "ChatGPT/Claude/Notion/Google Docs, Grammarly/Hemingway Editor", "output": "Complete documentation drafts with consistent formatting" },
+        { "step": 5, "title": "Visual Design & Formatting", "description": "Add diagrams, screenshots, and styling for enhanced readability", "tools": "Canva/Figma/Lucidchart, screenshot tools, Markdown/HTML editors", "output": "Visually enhanced documentation with diagrams and formatting" },
+        { "step": 6, "title": "Review & Feedback Integration", "description": "Conduct stakeholder reviews and integrate feedback systematically", "tools": "Google Docs/Notion comments, feedback collection tools, version control", "output": "Revised documentation incorporating stakeholder feedback" },
+        { "step": 7, "title": "Publishing & Maintenance", "description": "Deploy documentation and establish ongoing update processes", "tools": "GitBook/Notion/Confluence/GitHub Pages, analytics tools, maintenance workflows", "output": "Published documentation with maintenance schedule and update procedures" }
       ],
-      "commonPatterns": [],
+      "commonPatterns": [
+        { "step": 1, "promptTemplate": "Define audience and purpose for: **[documentation project]**. Analyze: 1) Who are the primary users? (developers, end-users, administrators, stakeholders), 2) What is their current knowledge level and technical expertise?, 3) What specific tasks will they accomplish using this documentation?, 4) What are their pain points with existing resources?, 5) What business goals does this documentation serve?, 6) How will success be measured? Example: 'Define audience personas and objectives for API documentation targeting frontend developers integrating payment processing.'" },
+        { "step": 2, "promptTemplate": "Conduct content audit for: **[audience and purpose definition]**. Evaluate: 1) What documentation currently exists on this topic?, 2) Which sections are outdated, incomplete, or confusing?, 3) What critical information is missing entirely?, 4) How does existing content align with user needs?, 5) What are the most frequently asked support questions?, 6) Which content should be updated vs replaced vs created new? Create a prioritized list of content gaps and improvement opportunities." },
+        { "step": 3, "promptTemplate": "Design information architecture for: **[content audit results]**. Structure: 1) Logical content hierarchy and organization, 2) User journey paths and navigation flows, 3) Cross-references and internal linking strategy, 4) Search and discovery mechanisms, 5) Progressive disclosure for complex topics, 6) Content tagging and categorization system. Example: 'Create a sitemap and navigation structure for comprehensive API documentation covering authentication, endpoints, SDKs, and troubleshooting.'" },
+        { "step": 4, "promptTemplate": "Write documentation content for: **[information architecture]**. Create: 1) Clear, scannable headings and subheadings, 2) Concise explanations with practical examples, 3) Step-by-step procedures with expected outcomes, 4) Code samples and configuration examples, 5) Troubleshooting guides and FAQ sections, 6) Consistent tone, style, and terminology throughout. Focus on clarity, accuracy, and actionable information that helps users accomplish their goals quickly." },
+        { "step": 5, "promptTemplate": "Enhance documentation visually for: **[written content]**. Add: 1) Diagrams and flowcharts to explain complex processes, 2) Screenshots and annotated images for UI guidance, 3) Code highlighting and formatting for technical examples, 4) Callout boxes for important warnings and tips, 5) Tables and lists for easy information scanning, 6) Consistent visual hierarchy and branding. Use tools like Canva, Figma, or Lucidchart to create professional visual elements." },
+        { "step": 6, "promptTemplate": "Review and refine documentation: **[visually enhanced content]**. Conduct: 1) Technical accuracy review with subject matter experts, 2) Usability testing with representative users, 3) Editorial review for clarity, grammar, and consistency, 4) Accessibility review for inclusive design, 5) Feedback collection and systematic integration, 6) Final quality assurance check. Document all feedback and create revision plan with priorities and timeline." },
+        { "step": 7, "promptTemplate": "Publish and maintain documentation: **[reviewed and refined content]**. Establish: 1) Publication platform setup and deployment, 2) Version control and change tracking systems, 3) Analytics and usage monitoring, 4) Regular review and update schedule, 5) Feedback collection mechanisms from users, 6) Content ownership and maintenance responsibilities. Create documentation maintenance playbook with procedures for keeping content current and accurate." }
+      ],
       "pitfallAvoidance": [
-        "Strong scope control per step to ensure thorough exploration.",
-        "Warn users if AI is unsuitable for problem scope.",
-        "Monitor for clear user input at each stage to ensure insights are actionable."
+        "If user jumps to writing without defining audience, guide back to Step 1: 'Let's first understand who will use this documentation and what they need to accomplish.'",
+        "When content is too technical for the audience, suggest simplification: 'This seems too complex for your target users. Let's adjust the language and add more explanation.'",
+        "If structure is unclear or illogical, emphasize organization: 'Users need clear navigation paths. Let's reorganize this information architecture.'",
+        "For documentation without examples, insist on practical content: 'Abstract explanations are hard to follow. Let's add concrete examples and use cases.'",
+        "When maintenance is overlooked, warn about content decay: 'Documentation becomes outdated quickly. Let's establish clear update procedures from the start.'"
       ],
       "outputOptimization": [
-        "Verify all Parking Lot items before assembling the prompt.",
-        "Ensure all steps are confirmed before generating the final output."
+        "After Step 7, provide a complete documentation package with content, style guide, maintenance procedures, and analytics setup.",
+        "Suggest creating templates for common documentation types (user guides, API docs, SOPs) to ensure consistency.",
+        "Recommend setting up user feedback loops and analytics to continuously improve documentation effectiveness.",
+        "Offer training materials for team members who will maintain and update the documentation over time.",
+        "Provide checklists for quality assurance and regular content audits to maintain documentation standards."
       ]
     }
   ]
