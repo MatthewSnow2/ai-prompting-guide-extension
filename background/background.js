@@ -223,6 +223,15 @@ function setupMessageListeners() {
       case 'getModels':
         sendResponse({ models });
         break;
+      
+      /* ------------------------------------------------------------ *
+       * Health-check from content scripts
+       * ------------------------------------------------------------ */
+      case 'ping':
+        // Simple heartbeat so content scripts can verify the
+        // background context is alive.
+        sendResponse({ status: 'ok' });
+        break;
         
       /* ------------------------------------------------------------ *
        * User preferences helpers for popup / content scripts

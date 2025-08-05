@@ -304,10 +304,10 @@ document.addEventListener('DOMContentLoaded', function() {
       currentSpecialistId = selectedSpecialistId;
       
       // Update user preferences
-      userPreferences.currentSpecialist = currentSpecialistId;
+      userPreferences.currentSpecialist = selectedSpecialistId;
       saveUserPreferences();
       
-      // Apply to active interface if open
+      // Apply to active interface if open, or open interface with specialist pre-selected
       chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
         if (chrome.runtime.lastError) {
           console.error('Error querying tabs:', chrome.runtime.lastError);
@@ -316,11 +316,81 @@ document.addEventListener('DOMContentLoaded', function() {
         
         if (!tabs || !tabs[0] || !tabs[0].id) return;
         
+        // Try to change specialist in existing interface
         sendMessageToTab(tabs[0].id, { 
           action: 'changeSpecialist', 
           specialistId: selectedSpecialistId 
+        }).then(response => {
+          if (response && response.success) {
+            // Interface was already open, specialist changed
+            window.close();
+          } else {
+            // Interface not open, open it with pre-selected specialist
+            sendMessageToTab(tabs[0].id, { 
+              action: 'toggleInterface',
+              preSelectedSpecialist: selectedSpecialistId
+            }).then(() => {
+              window.close();
+            }).catch(() => {
+              // Content script not loaded, inject and try again
+              chrome.scripting.executeScript({
+                target: { tabId: tabs[0].id },
+                files: ['content/content.js']
+              })
+              .then(() => {
+                return chrome.scripting.insertCSS({
+                  target: { tabId: tabs[0].id },
+                  files: ['content/content.css']
+                });
+              })
+              .then(() => {
+                setTimeout(() => {
+                  sendMessageToTab(tabs[0].id, { 
+                    action: 'toggleInterface',
+                    preSelectedSpecialist: selectedSpecialistId
+                  }).then(() => window.close())
+                  .catch(err => console.error('Failed to toggle after injection:', formatError(err)));
+                }, 100);
+              })
+              .catch(err => {
+                console.error('Failed to inject content script:', formatError(err));
+                alert('Could not load extension on this page. It may be restricted by the website.');
+              });
+            });
+          }
         }).catch(() => {
-          // Interface not open on this page, that's okay
+          // Interface not open, open it with pre-selected specialist
+          sendMessageToTab(tabs[0].id, { 
+            action: 'toggleInterface',
+            preSelectedSpecialist: selectedSpecialistId
+          }).then(() => {
+            window.close();
+          }).catch(() => {
+            // Content script not loaded, inject and try again
+            chrome.scripting.executeScript({
+              target: { tabId: tabs[0].id },
+              files: ['content/content.js']
+            })
+            .then(() => {
+              return chrome.scripting.insertCSS({
+                target: { tabId: tabs[0].id },
+                files: ['content/content.css']
+              });
+            })
+            .then(() => {
+              setTimeout(() => {
+                sendMessageToTab(tabs[0].id, { 
+                  action: 'toggleInterface',
+                  preSelectedSpecialist: selectedSpecialistId
+                }).then(() => window.close())
+                .catch(err => console.error('Failed to toggle after injection:', formatError(err)));
+              }, 100);
+            })
+            .catch(err => {
+              console.error('Failed to inject content script:', formatError(err));
+              alert('Could not load extension on this page. It may be restricted by the website.');
+            });
+          });
         });
       });
       
@@ -397,10 +467,9 @@ document.addEventListener('DOMContentLoaded', function() {
   function handleOpenOptions(event) {
     try {
       event.preventDefault();
-      chrome.runtime.openOptionsPage();
+      alert('Advanced settings are available within the main interface. Open the interface and click the ⚙️ Settings button.');
     } catch (error) {
-      console.error('Error opening options page:', formatError(error));
-      alert('Options page is not available.');
+      console.error('Error handling options request:', formatError(error));
     }
   }
   

@@ -1,11 +1,37 @@
 {
+  "_comment": "AI Prompting Guide Specialists Configuration",
+  "_standardization_notes": {
+    "workflow_pattern": "All specialists should follow the same pattern for consistency",
+    "required_fields": [
+      "id: unique identifier",
+      "name: display name", 
+      "description: brief purpose",
+      "welcomeMessage: should include emoji, step indicator (e.g., [1/7]), and clear next action",
+      "placeholderText: should reference workflow start option",
+      "icon: emoji representing the specialist",
+      "defaultPromptingTechniques: 7-step workflow array",
+      "commonPatterns: prompt templates for each step",
+      "pitfallAvoidance: common mistakes and how to avoid them",
+      "outputOptimization: tips for best results"
+    ],
+    "welcomeMessage_format": "🚀 [Specialist Name] activated! I'll guide you through a X-step process to [achieve goal]. Current Step: [1/X] [Step Name]. Next: Type 'Start Step 1' or ask me '[trigger question]' to begin.",
+    "placeholderText_format": "Tell me [context] or type 'Start Step 1' to begin the workflow…",
+    "workflow_steps": "Number of steps can vary by specialist (Research & Analysis: 7 steps, AI Solution Definition: 9 steps), but should be consistent within each specialist",
+    "step_structure": {
+      "step": "number 1-7",
+      "title": "clear action-oriented name",
+      "description": "what gets accomplished",
+      "tools": "recommended tools",
+      "output": "expected deliverable"
+    }
+  },
   "specialists": [
     {
       "id": "research-analysis",
       "name": "Research & Analysis",
       "description": "Background studies, competitor research, insights extraction",
-      "welcomeMessage": "🔬 Research & Analysis Coach activated! I'll guide you through a 7-step process to conduct focused, actionable market and technology research. \n\nCurrent Step: [1/7] Define Research Scope & Questions\nNext: Click \"Start Step 1\" or ask me \"What should I research?\" to begin.",
-      "placeholderText": "Tell me the topic you'd like to research or click \"Start Step 1\" to begin the workflow…",
+      "welcomeMessage": "🔬 Research & Analysis Coach activated! I'll guide you through a 7-step process to conduct focused, actionable market and technology research. \n\nCurrent Step: [1/7] Define Research Scope & Questions\nNext: Type \"Start Step 1\" or ask me \"What should I research?\" to begin.",
+      "placeholderText": "Tell me the topic you'd like to research or type \"Start Step 1\" to begin the workflow…",
       "icon": "🔍",
       "defaultPromptingTechniques": [
         { "step": 1, "title": "Define Research Scope & Questions", "description": "Establish research parameters and 5-7 key questions", "tools": "ChatGPT, Claude", "output": "Research brief" },
@@ -42,92 +68,305 @@
       "id": "ai-solution-definition",
       "name": "AI Solution Definition",
       "description": "Identify business cases, scope features, select models/tools",
-      "welcomeMessage": "I am an AI Solution Definition specialist. Let's scope your next AI feature or product.",
-      "placeholderText": "Describe the problem you'd like an AI solution for (e.g., \"Define an AI assistant for invoice processing\")…",
+      "welcomeMessage": "🧩 AI Solution Definition specialist activated! I'll guide you through a 9-step process to define your business problem and produce a high-quality final prompt for your chosen LLM to execute. \n\nCurrent Step: [1/9] Define and Clarify the Business Problem\nNext: Type \"Start Step 1\" or describe your business context and problem to begin.",
+      "placeholderText": "In 2-4 sentences, describe your business context and the problem you want to solve, or type \"Start Step 1\" to begin…",
       "icon": "🧩",
-      "defaultPromptingTechniques": [],
-      "commonPatterns": [],
-      "pitfallAvoidance": [],
-      "outputOptimization": []
+      "defaultPromptingTechniques": [
+        { "step": 0, "title": "Initialization and Context Check", "description": "Brief introduction to identify business context premise", "tools": "ChatGPT, Claude", "output": "Context acknowledgment" },
+        { "step": 1, "title": "Define and Clarify the Business Problem", "description": "Context, challenges, goals and boundaries", "tools": "ChatGPT, Claude", "output": "Problem definition summary" },
+        { "step": 2, "title": "Category Selection (Adaptive)", "description": "Primary AI solution categories", "tools": "Analysis framework", "output": "Selected AI category" },
+        { "step": 3, "title": "Ideate AI Solution Concepts", "description": "Concepts based on category", "tools": "Ideation framework", "output": "Chosen solution concept" },
+        { "step": 4, "title": "Define Core AI Capabilities & Tech Direction", "description": "LLM, data sources, and overall tech stack", "tools": "Technology assessment", "output": "Tech stack recommendation" },
+        { "step": 5, "title": "User Workflows & UX Outline", "description": "Workflow steps and experience outline", "tools": "UX design framework", "output": "Workflow specification" },
+        { "step": 6, "title": "High-Level System Components", "description": "Dependencies, interfaces, and component list", "tools": "Architecture framework", "output": "System component list" },
+        { "step": 7, "title": "Implementation Roadmap", "description": "MVP scope and timeline", "tools": "Project planning", "output": "Calendar-ready roadmap" },
+        { "step": 8, "title": "AI Fit Check", "description": "Confirm AI is right choice", "tools": "Assessment framework", "output": "AI suitability confirmation" },
+        { "step": 9, "title": "Final Prompt Assembly", "description": "Unified prompt compilation for LLM instruction", "tools": "Prompt engineering", "output": "Complete LLM prompt" }
+      ],
+      "commonPatterns": [
+        { "step": 0, "promptTemplate": "Ask the user to briefly describe their business context and the problem they want to solve. If their input is ambiguous, propose 2–3 interpretations and ask which is closest." },
+        { "step": 1, "promptTemplate": "Ask grouped questions: Context (industry, company size, audience, geography), Problem (what's happening today, affected processes/teams), Desired outcomes (success metrics, KPIs), Constraints (budget, timeline, compliance, integrations), Non-goals/scope boundaries. Then provide Step 1 Summary and ask: 'Confirm' or 'Edit'." },
+        { "step": 2, "promptTemplate": "Based on Step 1, suggest 1 primary category and 1 alternative: [Conversational AI], [AI Workflow Automation], [AI-Powered SaaS/Product]. Ask user to choose and confirm category selection." },
+        { "step": 3, "promptTemplate": "Generate 3–5 concise concepts aligned to selected category. For each include: Core functionality, Target users, AI capabilities, Expected impact/ROI. Ask user to pick one concept. Summarize choice and confirm." },
+        { "step": 4, "promptTemplate": "Ask grouped questions: Data (sources, volumes, freshness, access, privacy), AI components (LLM class/size, embeddings, classification, extraction), Orchestration (n8n preferred), Integrations (CRMs, ticketing, email, databases), Hosting preferences. Provide recommended tech stack with justifications. Summarize and confirm." },
+        { "step": 5, "promptTemplate": "Depending on category, outline: Conversational AI (intents, greeting, FAQs, escalation), Workflow Automation (triggers, actions, branching, notifications), SaaS/Product (user journeys, roles, screens, data I/O). Ask for must-have workflow steps. Provide compact workflow outline as bullet lists. Summarize and confirm." },
+        { "step": 6, "promptTemplate": "Provide non-code component list: Interface(s), AI modules (LLM, NLU, embeddings), Data sources and storage, External APIs and integrations, Orchestration/automation components (n8n), Security/identity/observability. Keep concise with bullet lists only. Summarize and confirm." },
+        { "step": 7, "promptTemplate": "Define: MVP scope (features for core value), Phases with calendar-ready dates relative to today, Milestones & deliverables per phase, Risks & mitigations. Ask for date constraints; if none, propose sensible lean MVP plan. Summarize and confirm." },
+        { "step": 8, "promptTemplate": "Briefly assess whether AI is appropriate for the stated problem. If concerns, produce short warning with 2–3 non-AI alternatives and ask if they want to continue." },
+        { "step": 9, "promptTemplate": "Assemble unified, plain-text prompt with exact section order: Role and Objective, Business Context, Problem Statement, Desired Outcomes & KPIs, Constraints & Non-goals, Selected Category, Chosen Solution Concept, Data & Integrations, AI Capabilities & Recommended Tech Stack, User Workflows & UX Outline, System Components, Implementation Roadmap, Risks & Mitigations, Instructions to Target LLM. End with 'Reply Confirm Final Prompt to finalize, or specify edits.'" }
+      ],
+      "pitfallAvoidance": [
+        "If user jumps to solution too quickly, guide them back to Step 1: 'Let's first clearly define the business problem before designing the solution.'",
+        "When AI isn't the best fit, suggest alternatives: 'Based on your requirements, a traditional automation solution might be more appropriate. Here's why...'",
+        "If scope is too broad, help narrow focus: 'This sounds like multiple AI solutions. Let's focus on the highest-impact use case first.'",
+        "Warn against over-engineering: 'For your MVP, let's start with simpler approaches before adding complexity.'"
+      ],
+      "outputOptimization": [
+        "After Step 7, provide a comprehensive solution summary with all key decisions and next steps.",
+        "Suggest creating a one-page solution brief for stakeholder review and approval.",
+        "Recommend starting with a proof-of-concept before full development.",
+        "Offer templates for technical specifications and project documentation."
+      ]
     },
     {
       "id": "workflow-automation-design",
       "name": "Workflow Automation Design",
       "description": "Map processes, design n8n/Zapier flows, integration planning",
-      "welcomeMessage": "I'm your Workflow Automation Design specialist. Which process should we streamline?",
-      "placeholderText": "Describe the workflow to automate (e.g., \"Auto-route new Typeform leads into HubSpot & Slack\")…",
+      "welcomeMessage": "🔗 Workflow Automation Design specialist activated! I'll guide you through a 7-step process to map, design, and deploy automated workflows for your business processes. \n\nCurrent Step: [1/7] Understand Business Process\nNext: Type \"Start Step 1\" or describe the process you'd like to automate.",
+      "placeholderText": "Describe the workflow to automate (e.g., \"Auto-route new Typeform leads into HubSpot & Slack\") or type \"Start Step 1\" to begin…",
       "icon": "🔗",
-      "defaultPromptingTechniques": [],
-      "commonPatterns": [],
-      "pitfallAvoidance": [],
-      "outputOptimization": []
+      "defaultPromptingTechniques": [
+        { "step": 1, "title": "Understand Business Process", "description": "Gather detailed info on manual process steps from stakeholders", "tools": "Process mapping, stakeholder interviews", "output": "Documented process flow with triggers and outputs" },
+        { "step": 2, "title": "Identify Triggers & Events", "description": "Define what events start workflows and required data fields", "tools": "Event analysis, data mapping", "output": "Trigger specifications and data requirements" },
+        { "step": 3, "title": "Define Actions & Conditions", "description": "Specify actions, branching logic, and error handling", "tools": "Logic design, workflow planning", "output": "Action sequences with conditional logic" },
+        { "step": 4, "title": "Integrate Systems & APIs", "description": "Connect client systems using connectors or custom API calls", "tools": "API documentation, integration testing", "output": "System integration specifications" },
+        { "step": 5, "title": "Build & Test Workflows", "description": "Construct workflows visually and verify with test data", "tools": "n8n, Make.com, testing frameworks", "output": "Working workflow with test results" },
+        { "step": 6, "title": "Monitor & Optimize", "description": "Set up alerts, collect metrics, and refine performance", "tools": "Monitoring tools, analytics platforms", "output": "Monitoring system and optimization plan" },
+        { "step": 7, "title": "Plan Maintenance & Scale", "description": "Schedule reviews, create documentation, build templates", "tools": "Documentation tools, template systems", "output": "Maintenance plan and reusable templates" }
+      ],
+      "commonPatterns": [
+        { "step": 1, "promptTemplate": "Help me understand the business process: **[process description]**. Please analyze: 1) Key steps in the current manual process, 2) Pain points and bottlenecks, 3) Stakeholders involved at each step, 4) Decision points and approval gates, 5) Required inputs and expected outputs, 6) Current tools and systems used. Example: 'Describe the key steps, pain points, and goals of the manual invoice approval process in a mid-sized company.'" },
+        { "step": 2, "promptTemplate": "Define triggers and events for: **[business process]**. Identify: 1) What events should start the workflow? (form submission, file upload, CRM update, time-based), 2) Which systems will generate these triggers?, 3) What data fields are required from each trigger?, 4) How frequently do these events occur?, 5) Any dependencies between triggers? Example: 'Trigger when a new lead is created in CRM with required fields: name, email, company, source.'" },
+        { "step": 3, "promptTemplate": "Design actions and conditions for: **[trigger events]**. Define: 1) What actions should happen after each trigger? (send email, update database, call API, create tasks), 2) What branching logic is needed? (if-else conditions based on data), 3) How should errors be handled? (retry logic, fallbacks, notifications), 4) What approvals or manual steps are required?, 5) Success and failure paths. Example: 'Design a workflow to validate a new lead, send a welcome email if qualified, or assign to manual review if not.'" },
+        { "step": 4, "promptTemplate": "Plan system integrations for: **[workflow actions]**. Specify: 1) Which systems need to be connected? (CRM, email, databases, APIs), 2) What authentication methods are required? (API keys, OAuth, webhooks), 3) How should data be mapped between systems?, 4) What are the API rate limits and constraints?, 5) Which integrations can use native connectors vs custom HTTP calls? Test each integration separately before combining." },
+        { "step": 5, "promptTemplate": "Build and test the workflow: **[integration plan]**. Implementation steps: 1) Choose platform (n8n, Make.com, Zapier) based on requirements, 2) Create workflow visually with proper error handling, 3) Use test data to verify each step works correctly, 4) Add logging and notifications for failures, 5) Test edge cases and error scenarios, 6) Document any manual fallback procedures. Provide step-by-step build instructions." },
+        { "step": 6, "promptTemplate": "Set up monitoring and optimization for: **[built workflow]**. Establish: 1) Alerts via Slack/email for workflow errors or unusual activity, 2) Performance metrics collection (execution time, success rate, volume), 3) Log analysis and error tracking, 4) Regular health checks and testing, 5) Optimization opportunities (speed improvements, cost reduction). Create monitoring dashboard and alert configuration." },
+        { "step": 7, "promptTemplate": "Plan maintenance and scaling for: **[monitored workflow]**. Develop: 1) Periodic review schedule (weekly/monthly/quarterly), 2) Update procedures for system changes, 3) Documentation and handover materials for team, 4) Backup and disaster recovery plans, 5) Reusable workflow templates for similar processes, 6) Scaling considerations for increased volume. Create maintenance checklist and template library." }
+      ],
+      "pitfallAvoidance": [
+        "If user jumps to building without understanding the process, guide back to Step 1: 'Let's first map out the current manual process before automating it.'",
+        "When triggers are too broad, help narrow focus: 'Let's be specific about exactly which events should start the workflow to avoid unnecessary executions.'",
+        "If error handling is missing, emphasize importance: 'What happens when the API is down or data is missing? Let's add proper error handling.'",
+        "For complex processes, suggest breaking down: 'This seems like multiple workflows. Let's start with the most critical path first.'"
+      ],
+      "outputOptimization": [
+        "After Step 7, provide a complete automation package with workflow diagrams, integration specifications, and maintenance procedures.",
+        "Suggest creating a workflow library for common business processes in the user's industry.",
+        "Recommend setting up workflow analytics to track ROI and process improvements.",
+        "Offer templates for documenting and sharing automation best practices with the team."
+      ]
     },
     {
       "id": "prompt-engineering",
       "name": "Prompt Engineering",
       "description": "Craft, refine, and evaluate effective prompts for LLMs",
-      "welcomeMessage": "Prompt Engineering specialist here. Tell me the outcome you need and we'll design the right prompts.",
-      "placeholderText": "Describe your prompt challenge (e.g., \"Need a robust system prompt for summarising legal docs\")…",
+      "welcomeMessage": "📝 Prompt Engineering specialist activated! I'll guide you through a 7-step process to craft, test, and deploy effective prompts for your LLM tasks. \n\nCurrent Step: [1/7] Define Task & Objectives\nNext: Type \"Start Step 1\" or describe your prompting challenge to begin.",
+      "placeholderText": "Describe your prompt challenge (e.g., \"Need a robust system prompt for summarising legal docs\") or type \"Start Step 1\" to begin…",
       "icon": "📝",
-      "defaultPromptingTechniques": [],
-      "commonPatterns": [],
-      "pitfallAvoidance": [],
-      "outputOptimization": []
+      "defaultPromptingTechniques": [
+        { "step": 1, "title": "Define Task & Objectives", "description": "Specify AI task clearly and determine success criteria", "tools": "Requirements analysis", "output": "Clear task definition & success metrics" },
+        { "step": 2, "title": "Draft Initial Prompts", "description": "Write clear, concise prompts targeting task goals", "tools": "Prompt writing frameworks", "output": "Initial prompt versions" },
+        { "step": 3, "title": "Test & Evaluate Prompts", "description": "Run prompts on diverse inputs and assess quality", "tools": "Testing frameworks, evaluation metrics", "output": "Performance assessment & failure analysis" },
+        { "step": 4, "title": "Refine Prompts", "description": "Adjust wording, instructions, examples based on feedback", "tools": "Few-shot prompting, chain-of-thought techniques", "output": "Optimized prompt versions" },
+        { "step": 5, "title": "Develop Prompt Templates", "description": "Create reusable, parameterized prompt structures", "tools": "Template frameworks", "output": "Reusable prompt templates" },
+        { "step": 6, "title": "Automate Prompt Deployment", "description": "Integrate prompts into pipelines with dynamic handling", "tools": "n8n, API scripts, workflow automation", "output": "Automated prompt system" },
+        { "step": 7, "title": "Monitor & Update Prompts", "description": "Log performance metrics and schedule regular reviews", "tools": "Monitoring tools, analytics platforms", "output": "Monitoring system & maintenance plan" }
+      ],
+      "commonPatterns": [
+        { "step": 1, "promptTemplate": "Define your AI task: **[task description]**. Help me specify: 1) What exactly should the AI do? (generate, classify, summarize, etc.), 2) What are your success criteria? (accuracy %, relevance, brevity, tone), 3) What inputs will you provide?, 4) What outputs do you expect?, 5) Any constraints or requirements? Provide structured task definition." },
+        { "step": 2, "promptTemplate": "Based on task: **[task definition]**, create initial prompts: 1) Write 2-3 different prompt approaches, 2) Include clear instructions and context, 3) Add examples or formatting requirements, 4) Specify any role or persona if needed, 5) Include output format instructions. Focus on clarity and specificity." },
+        { "step": 3, "promptTemplate": "Test these prompts: **[prompt versions]** by: 1) Running on 5-10 diverse input examples, 2) Manually or automatically evaluating outputs against success criteria, 3) Identifying failure modes (when/why prompts fail), 4) Documenting specific issues (ambiguity, hallucination, format problems), 5) Rating each prompt version. Provide detailed evaluation results." },
+        { "step": 4, "promptTemplate": "Refine prompts based on evaluation: **[test results]**. Apply these techniques: 1) Clarify ambiguous instructions, 2) Add few-shot examples for better guidance, 3) Use chain-of-thought for complex reasoning tasks, 4) Adjust tone/style instructions, 5) Add constraints to prevent common failures. Create 1-2 improved prompt versions." },
+        { "step": 5, "promptTemplate": "Create reusable prompt templates from: **[refined prompts]**. Include: 1) Parameterized sections with placeholders like {topic}, {context}, {format}, 2) Documentation of when to use each template, 3) Best practices and guidelines, 4) Variable examples and constraints, 5) Template versioning. Design for easy reuse and modification." },
+        { "step": 6, "promptTemplate": "Automate deployment of: **[prompt templates]**. Set up: 1) n8n workflow or API integration, 2) Dynamic input feeding mechanism, 3) Output processing and formatting, 4) Error handling and fallbacks, 5) Integration with existing systems (CRM, databases, etc.). Provide implementation steps and code snippets." },
+        { "step": 7, "promptTemplate": "Monitor and maintain: **[deployed prompts]**. Establish: 1) Key performance metrics to track (accuracy, response time, user satisfaction), 2) Logging and analytics setup, 3) Regular review schedule (weekly/monthly), 4) Update triggers (performance drops, new requirements), 5) Version control and rollback procedures. Create monitoring and maintenance plan." }
+      ],
+      "pitfallAvoidance": [
+        "If user jumps to writing prompts without clear objectives, guide back to Step 1: 'Let's first clearly define what success looks like before writing prompts.'",
+        "When prompts are too vague, emphasize specificity: 'The more specific your instructions, the better the AI will perform. Let's add more detail.'",
+        "If user skips testing, warn: 'Testing with diverse inputs is crucial - prompts often fail in unexpected ways. Let's test before finalizing.'",
+        "For complex tasks, suggest breaking down: 'This seems like multiple tasks. Let's create separate prompts for each part and chain them together.'"
+      ],
+      "outputOptimization": [
+        "After Step 7, provide a complete prompt engineering package with all versions, templates, and deployment instructions.",
+        "Suggest creating a prompt library for the user's common tasks and use cases.",
+        "Recommend setting up A/B testing for ongoing prompt optimization.",
+        "Offer templates for prompt documentation and sharing with team members."
+      ]
     },
     {
       "id": "conversational-voice-agents",
       "name": "Conversational/Voice Agents",
       "description": "Dialog design, persona creation, call-flow and voice UX",
-      "welcomeMessage": "I'm the Conversational & Voice Agent specialist. How can we improve your bot's conversation?",
-      "placeholderText": "Describe your agent goal (e.g., \"Design a voice bot to triage customer support calls\")…",
+      "welcomeMessage": "🗣️ Conversational/Voice Agents specialist activated! I'll guide you through specialized workflows for different agent types. \n\nFirst, I need to know: Are you building a **Text-Based Chatbot** or a **Voice Assistant**? \nNext: Type \"Text Chatbot\" or \"Voice Assistant\" to choose your workflow path.",
+      "placeholderText": "Type \"Text Chatbot\" for web/mobile chat or \"Voice Assistant\" for voice interactions to begin…",
       "icon": "🗣️",
-      "defaultPromptingTechniques": [],
-      "commonPatterns": [],
-      "pitfallAvoidance": [],
-      "outputOptimization": []
+      "defaultPromptingTechniques": [
+        { "step": 0, "title": "Choose Agent Type", "description": "Select between Text-Based Chatbot or Voice Assistant workflow", "tools": "Decision framework", "output": "Selected workflow path" },
+        { "step": 1, "title": "Understand Use Case (Chatbot)", "description": "Define user intents, goals, pain points for text-based interactions", "tools": "User research, stakeholder interviews", "output": "Use case definition and user intent mapping" },
+        { "step": 2, "title": "Define Intents & Entities (Chatbot)", "description": "Create intent/entity schema, sample utterances for text input", "tools": "NLU design frameworks, intent modeling", "output": "Intent schema with sample utterances" },
+        { "step": 3, "title": "Design Conversation Flow (Chatbot)", "description": "Multi-turn dialogues, fallback, escalation for text chat", "tools": "Conversation design tools, flowchart software", "output": "Complete conversation flow with fallbacks" },
+        { "step": 4, "title": "Prototype Chat UI", "description": "Build interactive chat interface", "tools": "Prototyping tools, UI frameworks", "output": "Clickable chat prototype" },
+        { "step": 5, "title": "Select NLU & Backend Tech (Chatbot)", "description": "Choose NLU engine and backend framework for text processing", "tools": "Technology evaluation, architecture planning", "output": "Documented tech stack and architecture" },
+        { "step": 6, "title": "Develop & Integrate (Chatbot)", "description": "Build backend APIs and orchestrate workflows", "tools": "Development frameworks, API tools", "output": "Integrated chatbot system" },
+        { "step": 7, "title": "Test & Monitor (Chatbot)", "description": "Continuous testing and analytics for chat interactions", "tools": "Testing frameworks, analytics platforms", "output": "Testing results and monitoring system" },
+        { "step": 11, "title": "Define Voice Use Case", "description": "Identify user needs and voice-specific interactions", "tools": "Voice UX research, user interviews", "output": "Voice use case definition and interaction patterns" },
+        { "step": 12, "title": "Create Voice Intents & Slots", "description": "Design voice intents and entity slots for spoken input", "tools": "Voice NLU frameworks, slot modeling", "output": "Voice intent schema with slot definitions" },
+        { "step": 13, "title": "Design Voice Conversation Flow", "description": "Build voice dialogue scripts including prompts and responses", "tools": "Voice conversation design, script writing", "output": "Voice interaction scripts and flow diagrams" },
+        { "step": 14, "title": "Prototype Voice UX", "description": "Create voice prototypes for testing user interactions", "tools": "Voice prototyping tools, audio recording", "output": "Voice demo and interaction prototype" },
+        { "step": 15, "title": "Select Platform & Integrations", "description": "Choose deployment platform and integrate APIs for voice", "tools": "Voice platform evaluation, API integration", "output": "Voice platform selection and integration plan" },
+        { "step": 16, "title": "Develop & Deploy", "description": "Build backend services and deploy voice assistant", "tools": "Voice development frameworks, cloud deployment", "output": "Deployed voice assistant" },
+        { "step": 17, "title": "Monitor & Optimize", "description": "Use analytics to improve voice UX and recognition accuracy", "tools": "Voice analytics, performance monitoring", "output": "Voice optimization plan and monitoring dashboard" }
+      ],
+      "commonPatterns": [
+        { "step": 0, "promptTemplate": "Choose your agent type: Are you building a **Text-Based Chatbot** (for websites, mobile apps, messaging platforms) or a **Voice Assistant** (for smart speakers, voice interfaces, phone systems)? Type 'Text Chatbot' or 'Voice Assistant' to proceed with the appropriate workflow." },
+        { "step": 1, "promptTemplate": "Define the use case for: **[chatbot description]**. Analyze: 1) What are the primary user intents and goals?, 2) What pain points does this agent solve?, 3) Who are the target users and their characteristics?, 4) What scenarios will the agent handle?, 5) What are the success metrics? Example: 'List key user intents for a retail chatbot: product search, order status, returns, support escalation.'" },
+        { "step": 2, "promptTemplate": "Create intents and entities for: **[use case definition]**. Define: 1) Primary intents (what users want to do), 2) Entities (key information to extract), 3) Sample utterances for each intent (5-10 variations), 4) Required/optional parameters, 5) Intent confidence thresholds. Example: 'Generate intents and example user phrases for retail chatbot: FindProduct intent with product_name entity, examples: \"show me red shoes\", \"I need a laptop\", \"find iPhone cases\".'" },
+        { "step": 3, "promptTemplate": "Design conversation flow for: **[intents and entities]**. Create: 1) Multi-turn dialogue sequences, 2) Context management between turns, 3) Fallback responses for unrecognized inputs, 4) Escalation paths to human agents, 5) Confirmation and error recovery flows, 6) Personalization opportunities. Example: 'Design conversation flow including fallback: greet user → identify intent → collect missing entities → confirm action → execute → follow-up.'" },
+        { "step": 4, "promptTemplate": "Build chat UI prototype for: **[conversation flow]**. Include: 1) Chat interface layout and styling, 2) Quick reply buttons and suggestions, 3) Rich content display (cards, carousels), 4) Typing indicators and status messages, 5) Error state handling. Create clickable prototype with key conversation paths." },
+        { "step": 5, "promptTemplate": "Select technology stack for: **[chat prototype requirements]**. Evaluate: 1) NLU engines (Dialogflow, Rasa, Azure Bot Service, AWS Lex), 2) Backend frameworks (Node.js, Python, .NET), 3) Integration requirements (APIs, databases, CRM), 4) Hosting and scaling considerations, 5) Cost and licensing factors. Document recommended tech stack with justifications." },
+        { "step": 6, "promptTemplate": "Develop and integrate: **[selected tech stack]**. Implementation: 1) Set up NLU training and model deployment, 2) Build backend APIs for business logic, 3) Connect frontend chat UI to backend, 4) Integrate with external systems (CRM, databases), 5) Implement authentication and security, 6) Add logging and error handling. Provide development roadmap and integration steps." },
+        { "step": 7, "promptTemplate": "Test and monitor: **[integrated chatbot system]**. Establish: 1) Testing strategy (unit, integration, user acceptance), 2) Intent recognition accuracy measurement, 3) Conversation success rate tracking, 4) User satisfaction metrics, 5) Performance monitoring (response time, uptime), 6) Continuous improvement process. Tune intents based on real user interactions and monitor conversation quality." },
+        { "step": 11, "promptTemplate": "Define voice assistant use case for: **[voice description]**. Analyze: 1) What voice-specific interactions are needed?, 2) What are the hands-free or eyes-free scenarios?, 3) How long are typical voice sessions?, 4) What ambient noise or context factors exist?, 5) What are voice-specific success metrics? Example: 'Define voice assistant use cases for medication reminders: voice-activated scheduling, spoken confirmations, audio notifications.'" },
+        { "step": 12, "promptTemplate": "Create voice intents and slots for: **[voice use case]**. Design: 1) Voice-optimized intents (shorter, more natural), 2) Slot types for spoken entities (dates, numbers, names), 3) Voice variations and pronunciations, 4) Context-dependent slot filling, 5) Confirmation strategies for voice input. Example: 'List voice intents and slot types for banking assistant: CheckBalance intent with account_type slot (checking, savings), TransferMoney with amount and destination slots.'" },
+        { "step": 13, "promptTemplate": "Design voice conversation flow for: **[voice intents and slots]**. Create: 1) Voice dialogue scripts with natural prompts, 2) Audio cues and confirmation patterns, 3) Error recovery for misheard speech, 4) Progressive disclosure for complex tasks, 5) Voice-appropriate pacing and brevity. Script voice interactions with sample prompts and responses." },
+        { "step": 14, "promptTemplate": "Build voice UX prototype for: **[voice conversation flow]**. Include: 1) Voice interaction mockups or recordings, 2) Audio prompts and response samples, 3) Voice command demonstrations, 4) Error handling examples, 5) Multi-turn conversation demos. Build voice demo that showcases key interaction patterns." },
+        { "step": 15, "promptTemplate": "Select voice platform and integrations for: **[voice prototype]**. Evaluate: 1) Voice platforms (Alexa Skills, Google Actions, Azure Speech, custom), 2) Speech-to-text and text-to-speech services, 3) Voice analytics and monitoring tools, 4) Backend API integrations, 5) Device deployment considerations. Document tech stack selection with voice-specific requirements." },
+        { "step": 16, "promptTemplate": "Develop and deploy voice assistant: **[selected voice platform]**. Implementation: 1) Configure voice platform and intents, 2) Build backend services for voice logic, 3) Integrate speech processing and APIs, 4) Implement voice-specific error handling, 5) Deploy and test on target devices. Launch working voice assistant with full functionality." },
+        { "step": 17, "promptTemplate": "Monitor and optimize voice assistant: **[deployed voice assistant]**. Establish: 1) Voice analytics and usage tracking, 2) Speech recognition accuracy monitoring, 3) Conversation completion rates, 4) User satisfaction and retention metrics, 5) Voice-specific optimization opportunities. Optimize voice flows based on real usage patterns and recognition data." }
+      ],
+      "pitfallAvoidance": [
+        "If user doesn't specify agent type, prompt: 'First, let me know if you're building a Text Chatbot or Voice Assistant - they have different design considerations.'",
+        "If user jumps to building without defining intents, guide back: 'Let's first understand what users want to accomplish before designing the conversation.'",
+        "When intents are too broad or overlapping, help refine: 'These intents seem to overlap. Let's make them more specific and mutually exclusive.'",
+        "If conversation flow lacks fallbacks, emphasize importance: 'What happens when the system doesn't understand? Let's design proper fallback and recovery flows.'",
+        "For voice assistants, remind about speech constraints: 'Voice interactions have different constraints than text - let's optimize for spoken dialogue.'",
+        "For complex agents, suggest starting simple: 'Let's begin with the most common use cases and add complexity gradually.'"
+      ],
+      "outputOptimization": [
+        "After completing either workflow, provide a complete package with training data, conversation flows, and monitoring setup specific to the chosen agent type.",
+        "For chatbots: Suggest creating a conversation design system for consistent UI/UX across different chat interfaces.",
+        "For voice assistants: Recommend voice-specific testing with diverse accents and speaking patterns.",
+        "Recommend setting up A/B testing for conversation flows and response variations appropriate to the platform.",
+        "Offer templates for conversation design documentation and handoff to development teams, customized for text vs voice development."
+      ]
     },
     {
       "id": "saas-product-planning",
       "name": "SaaS Product Planning",
       "description": "Feature roadmaps, pricing tiers, MVP scoping, GTM strategy",
-      "welcomeMessage": "SaaS Product Planning specialist at your service. What aspect of your SaaS roadmap needs clarity?",
-      "placeholderText": "Describe your SaaS idea or challenge (e.g., \"Define MVP feature list for subscription analytics tool\")…",
+      "welcomeMessage": "💡 SaaS Product Planning specialist activated! I'll guide you through a 7-step process to plan the full lifecycle of your AI-powered SaaS product from idea validation through system architecture and rollout strategy. \n\nCurrent Step: [1/7] Define Product Vision & Personas\nNext: Type \"Start Step 1\" or describe your SaaS product idea to begin.",
+      "placeholderText": "Describe your SaaS idea or challenge (e.g., \"Define MVP feature list for subscription analytics tool\") or type \"Start Step 1\" to begin…",
       "icon": "💡",
-      "defaultPromptingTechniques": [],
-      "commonPatterns": [],
-      "pitfallAvoidance": [],
-      "outputOptimization": []
+      "defaultPromptingTechniques": [
+        { "step": 1, "title": "Define Product Vision & Personas", "description": "Identify target user groups and their pain points", "tools": "ChatGPT/Claude, User Interviews, Notion/Google Docs/Obsidian", "output": "Product vision and user personas with pain points" },
+        { "step": 2, "title": "Ideate AI Features & Use Cases", "description": "Brainstorm AI-powered features aligned with user needs", "tools": "ChatGPT/Claude, Bolt.new/Lovable, Notion/Airtable", "output": "Prioritized AI feature list with impact assessment" },
+        { "step": 3, "title": "Design Data & ML Pipelines", "description": "Identify data sources and plan ML workflows", "tools": "Python/JavaScript, Apache Airflow/n8n, OpenAI/Hugging Face/Anthropic", "output": "Data pipeline architecture and ML workflow design" },
+        { "step": 4, "title": "Create UI/UX Wireframes", "description": "Develop wireframes covering core user flows", "tools": "Bolt.new/Lovable/v0.dev, Figma/Sketch/Adobe XD", "output": "Clickable wireframes and user flow diagrams" },
+        { "step": 5, "title": "Architect System & Tech Stack", "description": "Define components and create architecture diagrams", "tools": "ChatGPT/Claude, Mermaid.js/diagrams.net/Lucidchart", "output": "System architecture diagrams and tech stack specifications" },
+        { "step": 6, "title": "Develop Roadmap & Milestones", "description": "Define MVP features and subsequent phases", "tools": "ChatGPT/Claude, Jira/Asana/Linear, Google Sheets/Airtable", "output": "6-month roadmap with milestones and resource allocation" },
+        { "step": 7, "title": "Validate & Iterate", "description": "Present plans and refine based on stakeholder feedback", "tools": "Google Docs/Notion/Coda, ChatGPT/Claude", "output": "Validated product plan with stakeholder feedback integration" }
+      ],
+      "commonPatterns": [
+        { "step": 1, "promptTemplate": "Define product vision and personas for: **[SaaS product idea]**. Create: 1) Target user groups and their characteristics, 2) Key pain points and current solutions they use, 3) Product value proposition and unique selling points, 4) Success metrics and KPIs, 5) Market size and opportunity assessment. Example: 'Define user personas and key pain points for an AI SaaS product helping small retailers optimize inventory management.'" },
+        { "step": 2, "promptTemplate": "Brainstorm AI features for: **[product vision and personas]**. Generate: 1) 5-8 AI-powered features aligned with user needs, 2) Impact vs feasibility matrix for prioritization, 3) Technical complexity assessment for each feature, 4) Expected user outcomes and business value, 5) Competitive differentiation potential. Example: 'Suggest 5 AI features for a SaaS product focused on demand forecasting and supply chain optimization for retail.'" },
+        { "step": 3, "promptTemplate": "Design data and ML pipelines for: **[prioritized AI features]**. Plan: 1) Data sources required (internal, external, APIs), 2) Data preprocessing and feature engineering steps, 3) ML model training and validation workflows, 4) Model updating and retraining schedules, 5) Data quality monitoring and governance. Include ETL pipeline outline and model hosting considerations (OpenAI API, Hugging Face, custom models)." },
+        { "step": 4, "promptTemplate": "Create UI/UX wireframes for: **[AI features and data pipelines]**. Design: 1) Core user flows and navigation paths, 2) Key screens and interface layouts, 3) AI feature integration points in the UI, 4) User onboarding and feature discovery flows, 5) Mobile and desktop responsive considerations. Example: 'Design a user onboarding flow wireframe for an AI SaaS product targeting retail managers.' Focus on how users interact with AI insights." },
+        { "step": 5, "promptTemplate": "Architect system and tech stack for: **[wireframes and features]**. Define: 1) Frontend framework (React/Vue/Angular), 2) Backend services (Node.js/Python/Go), 3) Database architecture (PostgreSQL/MongoDB), 4) AI/ML services integration, 5) Authentication, APIs, and security layers, 6) Hosting and deployment strategy (AWS/GCP/Azure). Create high-level architecture diagram showing component relationships." },
+        { "step": 6, "promptTemplate": "Develop roadmap and milestones for: **[system architecture]**. Create: 1) MVP feature definition and scope, 2) 6-month development phases with deliverables, 3) Resource requirements (developers, designers, data scientists), 4) Timeline estimates and dependencies, 5) Risk mitigation strategies and contingency plans. Example: 'Create a 6-month roadmap for building an AI SaaS MVP with demand forecasting, user onboarding, and reporting features.'" },
+        { "step": 7, "promptTemplate": "Validate and iterate on: **[complete product plan]**. Conduct: 1) Stakeholder review sessions and feedback collection, 2) Technical feasibility validation with development team, 3) Market validation through user interviews or surveys, 4) Financial projections and business model validation, 5) Plan refinements based on all feedback. Document final validated plan with stakeholder sign-off and next steps." }
+      ],
+      "pitfallAvoidance": [
+        "If user jumps to features without defining personas, guide back to Step 1: 'Let's first understand who we're building for before defining what to build.'",
+        "When AI features are too generic, push for specificity: 'How exactly will this AI feature solve the specific user problem? Let's get more concrete.'",
+        "If data requirements are underestimated, warn: 'AI features need quality data. Let's ensure we have realistic data acquisition and processing plans.'",
+        "For over-complex MVP scope, recommend simplification: 'This MVP seems quite large. Let's identify the core value proposition and build that first.'",
+        "When technical architecture is unclear, insist on clarity: 'The architecture needs to be specific enough for developers to understand and estimate.'"
+      ],
+      "outputOptimization": [
+        "After Step 7, provide a complete SaaS product planning package with personas, feature specs, technical architecture, and go-to-market roadmap.",
+        "Suggest creating a product requirements document (PRD) template for ongoing feature development.",
+        "Recommend setting up user feedback loops and analytics to validate assumptions post-launch.",
+        "Offer templates for investor pitches and stakeholder presentations based on the comprehensive plan.",
+        "Provide guidance on assembling the right team (technical, design, product) based on the roadmap requirements."
+      ]
     },
     {
       "id": "website-creation",
       "name": "Website Creation",
-      "description": "Site structure, copy guidance, SEO basics, Webflow/WordPress tips",
-      "welcomeMessage": "Website Creation specialist ready. Let's build or improve your site experience.",
-      "placeholderText": "Describe your site project (e.g., \"Need a 5-page Webflow layout for AI agency\")…",
+      "description": "Site structure, copy guidance, SEO basics, no-code/low-code development",
+      "welcomeMessage": "🌐 Website Creation specialist activated! I'll guide you through an 8-step process to create professional websites from requirements gathering through deployment and monitoring. \n\nCurrent Step: [1/8] Requirement Gathering\nNext: Type \"Start Step 1\" or describe your website project to begin.",
+      "placeholderText": "Describe your site project (e.g., \"Need a 5-page website for AI agency\") or type \"Start Step 1\" to begin…",
       "icon": "🌐",
-      "defaultPromptingTechniques": [],
-      "commonPatterns": [],
-      "pitfallAvoidance": [],
-      "outputOptimization": []
+      "defaultPromptingTechniques": [
+        { "step": 1, "title": "Requirement Gathering", "description": "Define website purpose, target audience, key features, and business objectives", "tools": "ChatGPT/Claude, User Interviews, Notion/Google Docs/Obsidian", "output": "Detailed requirements document with objectives and specifications" },
+        { "step": 2, "title": "Content Strategy & Copywriting", "description": "Develop content plan and create compelling, SEO-friendly text", "tools": "ChatGPT/Claude/Jasper.ai/Writesonic, Ahrefs/SEMrush, Notion/Google Docs", "output": "Complete website copy with SEO optimization" },
+        { "step": 3, "title": "UI/UX Design & Prototyping", "description": "Design layout, navigation, and interactive elements with clickable prototypes", "tools": "Lovable/Bolt.new/v0.dev, Figma/Adobe XD/Sketch, ChatGPT/Claude", "output": "Interactive prototypes and design specifications" },
+        { "step": 4, "title": "Frontend Development", "description": "Turn approved prototype into working frontend using no/low-code builders", "tools": "Bolt.new/Lovable/Webflow/Framer, responsive testing tools", "output": "Responsive website frontend with accessibility features" },
+        { "step": 5, "title": "Backend Development", "description": "Provide minimal backend services using no/low-code solutions first", "tools": "Bolt.new/Lovable backends, Cursor/Windsurf/Claude Code, serverless functions", "output": "Backend services for forms and basic functionality" },
+        { "step": 6, "title": "Integration & Testing", "description": "Ensure end-to-end functionality with simplified testing approach", "tools": "Manual testing checklist, cross-device testing, user testing", "output": "Fully tested and validated website" },
+        { "step": 7, "title": "Deployment & Hosting", "description": "Publish website with robust hosting and continuous deployment", "tools": "Vercel/Netlify/Cloudflare Pages, GitHub Actions/GitLab CI", "output": "Live website with automated deployment pipeline" },
+        { "step": 8, "title": "Monitoring & Maintenance", "description": "Track performance, user behavior, and errors for ongoing optimization", "tools": "Google Analytics/Plausible, Sentry/LogRocket, performance monitoring", "output": "Monitoring dashboard and maintenance schedule" }
+      ],
+      "commonPatterns": [
+        { "step": 1, "promptTemplate": "Help me draft requirements for: **[website project description]**. Define: 1) Website purpose and primary objectives, 2) Target audience characteristics and needs, 3) Key features and functionality requirements, 4) Business goals and success metrics, 5) Technical constraints and preferences, 6) Timeline and budget considerations. Example: 'Help me draft a detailed requirements document for a website that serves as a landing page for a climate tech AI consultancy firm targeting global enterprises.'" },
+        { "step": 2, "promptTemplate": "Develop content strategy for: **[website requirements]**. Create: 1) Content architecture and sitemap, 2) SEO keyword strategy and target phrases, 3) Brand voice and messaging guidelines, 4) Page-specific copy and headlines, 5) Call-to-action optimization, 6) Content calendar for ongoing updates. Example: 'Write homepage content for a climate tech AI consultancy that emphasizes innovation, sustainability, and global impact.'" },
+        { "step": 3, "promptTemplate": "Design UI/UX prototype for: **[content strategy and requirements]**. Create: 1) Information architecture and user flow diagrams, 2) Wireframes for key pages and interactions, 3) Visual design system (colors, typography, components), 4) Responsive breakpoints and mobile-first approach, 5) Accessibility considerations and inclusive design, 6) Interactive prototype with clickable elements. Example: 'Design a clean, modern landing page prototype for a climate tech AI consultancy firm with sections: Hero, Services, About Us, Contact.'" },
+        { "step": 4, "promptTemplate": "Develop frontend for: **[approved prototype]**. Implement: 1) Responsive layouts across devices (mobile, tablet, desktop), 2) Interactive components and animations, 3) Performance optimization (image compression, lazy loading), 4) SEO technical implementation (meta tags, structured data), 5) Accessibility features (ARIA labels, keyboard navigation), 6) Cross-browser compatibility testing. Use no/low-code tools like Bolt.new, Lovable, or Webflow for rapid development." },
+        { "step": 5, "promptTemplate": "Set up backend services for: **[frontend implementation]**. Configure: 1) Form handling and data validation, 2) Email notifications and integrations, 3) Simple data storage if needed, 4) API endpoints for dynamic content, 5) Authentication if required, 6) Security measures and data protection. Start with built-in solutions from your platform, escalate to custom code only if necessary using Cursor, Windsurf, or Claude Code." },
+        { "step": 6, "promptTemplate": "Test website functionality for: **[complete implementation]**. Validate: 1) All links and navigation work correctly, 2) Forms submit properly with validation, 3) Mobile and desktop responsiveness, 4) Page load speed and performance, 5) SEO elements and meta tags, 6) Accessibility compliance (color contrast, screen readers), 7) Cross-browser functionality. Conduct user testing with non-technical users for usability feedback." },
+        { "step": 7, "promptTemplate": "Deploy website: **[tested implementation]**. Set up: 1) Version control with Git repository, 2) Hosting platform configuration (Vercel, Netlify, or Cloudflare Pages), 3) Custom domain and SSL certificate, 4) Continuous deployment from repository, 5) Environment variables and secrets management, 6) Performance optimization (CDN, caching), 7) Backup and recovery procedures." },
+        { "step": 8, "promptTemplate": "Monitor and maintain: **[deployed website]**. Establish: 1) Analytics tracking (Google Analytics or Plausible), 2) Error monitoring and performance tracking, 3) Regular security updates and patches, 4) Content update schedule and procedures, 5) Performance optimization monitoring, 6) User feedback collection and response process, 7) Backup verification and disaster recovery testing." }
+      ],
+      "pitfallAvoidance": [
+        "If user jumps to design without requirements, guide back to Step 1: 'Let's first understand what the website needs to accomplish and for whom.'",
+        "When content strategy is skipped, emphasize importance: 'Good content is the foundation of effective websites. Let's define the messaging before designing.'",
+        "If prototype lacks mobile considerations, remind: 'Most users browse on mobile. Let's ensure the design works well on all devices.'",
+        "For over-complex functionality, suggest simplification: 'Let's start with core features and add complexity later based on user feedback.'",
+        "When testing is rushed, insist on thoroughness: 'Proper testing prevents user frustration and business impact. Let's be thorough.'"
+      ],
+      "outputOptimization": [
+        "After Step 8, provide a complete website package with documentation, source code, deployment instructions, and maintenance guidelines.",
+        "Suggest creating a style guide and component library for future updates and consistency.",
+        "Recommend setting up automated monitoring alerts for downtime, performance issues, and security concerns.",
+        "Offer templates for ongoing content creation and website maintenance tasks.",
+        "Provide guidance on scaling the website as business needs grow and traffic increases."
+      ]
     },
     {
       "id": "client-outreach-messaging",
       "name": "Client Outreach Messaging",
-      "description": "Cold emails, LinkedIn scripts, value-prop tailoring",
-      "welcomeMessage": "I specialize in Client Outreach Messaging. Let's craft messages that resonate.",
-      "placeholderText": "Describe your outreach goal (e.g., \"Write a LinkedIn DM for HR leaders about our ATS plugin\")…",
+      "description": "Cold emails, LinkedIn scripts, value-prop tailoring, automated sequences",
+      "welcomeMessage": "✉️ Client Outreach Messaging specialist activated! I'll guide you through a 6-step process to craft personalized, engaging outreach messages that open doors for conversations and convert leads using AI-enhanced content and automation. \n\nCurrent Step: [1/6] Lead Research & Segmentation\nNext: Type \"Start Step 1\" or describe your outreach campaign to begin.",
+      "placeholderText": "Describe your outreach goal (e.g., \"Write a LinkedIn DM for HR leaders about our ATS plugin\") or type \"Start Step 1\" to begin…",
       "icon": "✉️",
-      "defaultPromptingTechniques": [],
-      "commonPatterns": [],
-      "pitfallAvoidance": [],
-      "outputOptimization": []
+      "defaultPromptingTechniques": [
+        { "step": 1, "title": "Lead Research & Segmentation", "description": "Research prospects and create targeted segments for personalized outreach", "tools": "LinkedIn Sales Navigator/Apollo.io/ZoomInfo, ChatGPT/Claude", "output": "Segmented lead lists with research insights and targeting criteria" },
+        { "step": 2, "title": "Message Drafting & Personalization", "description": "Create compelling, personalized messages for different outreach scenarios", "tools": "ChatGPT/Claude/Jasper.ai/Copy.ai, Grammarly/ProWritingAid", "output": "Personalized message templates for each segment and channel" },
+        { "step": 3, "title": "Multi-Channel Outreach Automation", "description": "Build automated workflows for email and social media outreach", "tools": "n8n/Make.com/Zapier, HubSpot/Salesforce, Lemlist/Outreach/Apollo", "output": "Automated outreach sequences across multiple channels" },
+        { "step": 4, "title": "Follow-up Scheduling & Tracking", "description": "Automate follow-up sequences and track engagement metrics", "tools": "CRM systems (HubSpot/Salesforce/Pipedrive), n8n/Make.com", "output": "Automated follow-up workflows with engagement tracking" },
+        { "step": 5, "title": "Response Handling & Qualification", "description": "Analyze responses and qualify leads using AI-powered classification", "tools": "ChatGPT/Claude for analysis, CRM automation workflows", "output": "Lead qualification system with automated response routing" },
+        { "step": 6, "title": "Analytics & Optimization", "description": "Track performance metrics and optimize campaigns based on data", "tools": "Google Analytics/HubSpot Analytics, campaign reporting tools", "output": "Performance dashboard with optimization recommendations and A/B test results" }
+      ],
+      "commonPatterns": [
+        { "step": 1, "promptTemplate": "Research and segment leads for: **[target market/product description]**. Define: 1) Ideal client profile characteristics (industry, company size, role), 2) Pain points and challenges they face, 3) Decision-making process and key stakeholders, 4) Preferred communication channels and timing, 5) Segmentation criteria for personalized messaging, 6) Research sources and lead qualification criteria. Example: 'Given the profile of a climate tech startup interested in AI solutions, generate a list of criteria for ideal client segmentation for outreach.'" },
+        { "step": 2, "promptTemplate": "Draft personalized outreach messages for: **[lead segment and research insights]**. Create: 1) Subject lines and opening hooks that grab attention, 2) Value proposition tailored to specific pain points, 3) Social proof and credibility indicators, 4) Clear call-to-action with low commitment ask, 5) Multiple message variations for A/B testing, 6) Templates for different outreach types (cold, warm, event invites, feedback requests). Example: 'Draft a personalized cold outreach email to a CFO of a mid-sized renewable energy company introducing AI-driven financial monitoring solutions.'" },
+        { "step": 3, "promptTemplate": "Build multi-channel automation for: **[message templates and segments]**. Set up: 1) Email sequences with personalization tokens, 2) LinkedIn connection requests and follow-up messages, 3) Cross-platform timing and coordination, 4) Lead enrichment and data synchronization, 5) Bounce handling and deliverability optimization, 6) Compliance with anti-spam regulations (CAN-SPAM, GDPR). Use tools like n8n, Make.com, or HubSpot workflows for automation." },
+        { "step": 4, "promptTemplate": "Configure follow-up tracking for: **[automated outreach sequences]**. Implement: 1) Response detection and categorization, 2) Engagement scoring based on opens, clicks, replies, 3) Automated follow-up scheduling with smart delays, 4) CRM integration for sales team visibility, 5) Lead nurturing workflows for different engagement levels, 6) Reminder systems for manual follow-ups when needed." },
+        { "step": 5, "promptTemplate": "Analyze and qualify responses from: **[outreach campaigns]**. Process: 1) Sentiment analysis and intent classification, 2) Lead scoring based on response quality and engagement, 3) Automated routing to appropriate sales team members, 4) Response templates for common objections or questions, 5) Qualification criteria and next step recommendations, 6) Integration with CRM for pipeline management. Example: 'Analyze the following client reply and classify it as interested, not interested, or needs more information: [Insert client message here].'" },
+        { "step": 6, "promptTemplate": "Optimize outreach performance for: **[campaign results and metrics]**. Analyze: 1) Open rates, response rates, and conversion metrics by segment, 2) Best-performing subject lines and message variations, 3) Optimal timing and frequency for different channels, 4) A/B test results and statistical significance, 5) ROI and cost-per-lead analysis, 6) Recommendations for scaling successful campaigns and improving underperforming ones." }
+      ],
+      "pitfallAvoidance": [
+        "If user wants to blast generic messages, guide to segmentation: 'Generic messages get ignored. Let's first research and segment your leads for better personalization.'",
+        "When messages are too salesy, recommend value-first approach: 'Focus on providing value and solving problems rather than selling. Let's adjust the messaging.'",
+        "If compliance is overlooked, emphasize importance: 'Outreach must comply with anti-spam laws. Let's ensure proper opt-out mechanisms and consent.'",
+        "For over-aggressive follow-ups, suggest moderation: 'Too many follow-ups can damage relationships. Let's create a respectful cadence.'",
+        "When tracking is insufficient, insist on metrics: 'Without proper tracking, we can't optimize. Let's set up comprehensive analytics.'"
+      ],
+      "outputOptimization": [
+        "After Step 6, provide a complete outreach system with templates, automation workflows, tracking dashboards, and optimization playbooks.",
+        "Suggest creating a message library organized by industry, role, and outreach type for easy reuse and customization.",
+        "Recommend setting up regular performance reviews and optimization cycles based on campaign data.",
+        "Offer compliance checklists and best practices documentation for different regions and industries.",
+        "Provide training materials for sales teams on using the automated systems and interpreting analytics data."
+      ]
     },
     {
       "id": "data-analysis-support",
       "name": "Data Analysis Support",
       "description": "Exploratory queries, visualization ideas, statistical tips",
-      "welcomeMessage": "Data Analysis Support specialist here. What dataset or metric shall we explore?",
-      "placeholderText": "Describe your data question (e.g., \"Need prompt steps for churn cohort analysis in SQL\")…",
+      "welcomeMessage": "📊 Data Analysis Support specialist - Not available yet. This specialist is currently under development and will be available in a future update.",
+      "placeholderText": "This specialist is not available yet. Please select another specialist.",
       "icon": "📊",
       "defaultPromptingTechniques": [],
       "commonPatterns": [],
@@ -145,8 +384,7 @@
       "commonPatterns": [],
       "pitfallAvoidance": [],
       "outputOptimization": []
-    }
-  ,
+    },
     {
       "id": "ai-business-problem-advisor",
       "name": "Business Problem to AI Solution Advisor",
@@ -155,8 +393,7 @@
       "placeholderText": "In 2–4 sentences, describe your business context and the problem you want to solve…",
       "icon": "💼",
       "defaultPromptingTechniques": [
-        { "step": 0, "title": "Initialization and Context Check", "description": "Brief introduction to identify business context 
-premise." },
+        { "step": 0, "title": "Initialization and Context Check", "description": "Brief introduction to identify business context premise." },
         { "step": 1, "title": "Define and Clarify the Business Problem", "description": "Context, challenges, goals and boundaries." },
         { "step": 2, "title": "Category Selection (Adaptive)", "description": "Primary AI solution categories." },
         { "step": 3, "title": "Ideate AI Solution Concepts", "description": "Concepts based on category." },
