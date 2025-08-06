@@ -1,5 +1,8 @@
 class AIPromptingGuide {
   constructor() {
+    // Initialize security utilities
+    this.security = new SecurityUtils();
+    
     // Initialize properties
     this.isVisible = false;
     this.position = { x: 20, y: 20 };
@@ -37,6 +40,13 @@ class AIPromptingGuide {
     this.llmContext = {};
     this.settingsVisible = false;
     
+    // Event listener cleanup tracking
+    this.eventListeners = [];
+    this.isDestroyed = false;
+    
+    // Debounced functions
+    this.debouncedSendMessage = this.security.debounce(this.handleSendMessage.bind(this), 300);
+    
     // Bind methods to this
     this.initialize = this.initialize.bind(this);
     this.createInterface = this.createInterface.bind(this);
@@ -70,6 +80,53 @@ class AIPromptingGuide {
     this.hideSettings = this.hideSettings.bind(this);
     this.testConnection = this.testConnection.bind(this);
     this.saveSettings = this.saveSettings.bind(this);
+    this.cleanup = this.cleanup.bind(this);
+    this.addEventListenerTracked = this.addEventListenerTracked.bind(this);
+  }
+
+  /**
+   * Add event listener and track for cleanup
+   * @param {Element} element - Element to add listener to
+   * @param {string} event - Event type
+   * @param {Function} handler - Event handler
+   * @param {boolean|object} options - Event options
+   */
+  addEventListenerTracked(element, event, handler, options = false) {
+    if (!element || this.isDestroyed) return;
+    
+    element.addEventListener(event, handler, options);
+    this.eventListeners.push({ element, event, handler, options });
+  }
+
+  /**
+   * Clean up all event listeners and resources
+   */
+  cleanup() {
+    if (this.isDestroyed) return;
+    
+    console.log('[AIPG] Cleaning up event listeners and resources');
+    this.isDestroyed = true;
+    
+    // Remove all tracked event listeners
+    this.eventListeners.forEach(({ element, event, handler, options }) => {
+      try {
+        element.removeEventListener(event, handler, options);
+      } catch (error) {
+        console.warn('[AIPG] Failed to remove event listener:', error);
+      }
+    });
+    this.eventListeners = [];
+    
+    // Remove interface from DOM
+    const container = document.getElementById('ai-prompting-guide-container');
+    if (container) {
+      container.remove();
+    }
+    
+    // Clear any timeouts/intervals
+    if (this.contextValidationInterval) {
+      clearInterval(this.contextValidationInterval);
+    }
   }
 
   /**
@@ -153,9 +210,9 @@ class AIPromptingGuide {
     header.innerText = 'AI Prompting Guide';
     
     // Add event listeners for dragging
-    header.addEventListener('mousedown', this.handleDragStart);
-    document.addEventListener('mousemove', this.handleDrag);
-    document.addEventListener('mouseup', this.handleDragEnd);
+    this.addEventListenerTracked(header, 'mousedown', this.handleDragStart);
+    this.addEventListenerTracked(document, 'mousemove', this.handleDrag);
+    this.addEventListenerTracked(document, 'mouseup', this.handleDragEnd);
     
     // Create close button
     const closeButton = document.createElement('button');
@@ -173,7 +230,7 @@ class AIPromptingGuide {
     closeButton.style.fontWeight = 'bold';
     closeButton.style.fontSize = '12px';
     closeButton.style.padding = '0';
-    closeButton.addEventListener('click', this.closeInterface);
+    this.addEventListenerTracked(closeButton, 'click', this.closeInterface);
     
     // Add close button to header
     header.appendChild(closeButton);
@@ -200,7 +257,7 @@ class AIPromptingGuide {
     specialistDropdown.id = 'ai-prompting-guide-specialist';
     specialistDropdown.style.width = '100%';
     specialistDropdown.style.padding = '5px';
-    specialistDropdown.addEventListener('change', this.handleSpecialistChange);
+    this.addEventListenerTracked(specialistDropdown, 'change', this.handleSpecialistChange);
     
     specialistContainer.appendChild(specialistLabel);
     specialistContainer.appendChild(specialistDropdown);
@@ -220,7 +277,7 @@ class AIPromptingGuide {
     modelDropdown.id = 'ai-prompting-guide-model';
     modelDropdown.style.width = '100%';
     modelDropdown.style.padding = '5px';
-    modelDropdown.addEventListener('change', this.handleModelChange);
+    this.addEventListenerTracked(modelDropdown, 'change', this.handleModelChange);
     
     modelContainer.appendChild(modelLabel);
     modelContainer.appendChild(modelDropdown);
@@ -253,11 +310,14 @@ class AIPromptingGuide {
     textInput.style.border = '1px solid #ccc';
     textInput.style.borderRadius = '4px';
     textInput.style.marginRight = '5px';
-    textInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        this.handleSendMessage();
+    const handleKeydown = (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        // SECURITY FIX: Use debounced send message to prevent spam
+        this.debouncedSendMessage();
       }
-    });
+    };
+    this.addEventListenerTracked(textInput, 'keydown', handleKeydown);
     
     // Create send button
     const sendButton = document.createElement('button');
@@ -268,7 +328,7 @@ class AIPromptingGuide {
     sendButton.style.border = 'none';
     sendButton.style.borderRadius = '4px';
     sendButton.style.cursor = 'pointer';
-    sendButton.addEventListener('click', this.handleSendMessage);
+    this.addEventListenerTracked(sendButton, 'click', this.debouncedSendMessage);
     
     // Add text input and send button to input container
     inputContainer.appendChild(textInput);
@@ -290,7 +350,7 @@ class AIPromptingGuide {
     clearButton.style.borderRadius = '4px';
     clearButton.style.cursor = 'pointer';
     clearButton.style.flex = '1';
-    clearButton.addEventListener('click', this.clearChat);
+    this.addEventListenerTracked(clearButton, 'click', this.clearChat);
     
     // Create settings button (for future LLM integration)
     const settingsButton = document.createElement('button');
@@ -303,7 +363,7 @@ class AIPromptingGuide {
     settingsButton.style.cursor = 'pointer';
     settingsButton.style.width = '40px';
     settingsButton.title = 'Settings (LLM Integration)';
-    settingsButton.addEventListener('click', this.showSettings);
+    this.addEventListenerTracked(settingsButton, 'click', this.showSettings);
     
     buttonContainer.appendChild(clearButton);
     buttonContainer.appendChild(settingsButton);
@@ -319,9 +379,9 @@ class AIPromptingGuide {
     resizeHandle.style.backgroundColor = '#ccc';
     
     // Add event listeners for resizing
-    resizeHandle.addEventListener('mousedown', this.handleResizeStart);
-    document.addEventListener('mousemove', this.handleResize);
-    document.addEventListener('mouseup', this.handleResizeEnd);
+    this.addEventListenerTracked(resizeHandle, 'mousedown', this.handleResizeStart);
+    this.addEventListenerTracked(document, 'mousemove', this.handleResize);
+    this.addEventListenerTracked(document, 'mouseup', this.handleResizeEnd);
     
     // Add all elements to container
     container.appendChild(header);
@@ -1754,7 +1814,7 @@ Make it professional, specific to their research needs, and optimized for AI res
         const configButton = document.getElementById(configButtonId);
         if (configButton) {
           console.log('[AIPG] Adding click listener to config button');
-          configButton.addEventListener('click', () => {
+          this.addEventListenerTracked(configButton, 'click', () => {
             console.log('[AIPG] Config button clicked');
             this.showSettings();
           });
@@ -2234,7 +2294,8 @@ Make it professional, specific to their research needs, and optimized for AI res
 
     const msg = document.createElement('div');
     msg.className = 'ai-prompting-guide-message assistant';
-    msg.innerHTML = content;
+    // SECURITY FIX: Use safe HTML rendering instead of direct innerHTML
+    this.security.setInnerHTMLSafe(msg, content);
     msg.style.backgroundColor = '#f0f0f0';
     msg.style.padding = '10px';
     msg.style.borderRadius = '5px';
@@ -2320,30 +2381,31 @@ Make it professional, specific to their research needs, and optimized for AI res
       overflow-y: auto;
     `;
 
-    panel.innerHTML = `
+    // SECURITY FIX: Use safe template creation instead of direct innerHTML with interpolation
+    const settingsTemplate = `
       <strong>⚙️ LLM Integration Settings</strong><br><br>
       
       <div style="margin-bottom: 15px;">
         <label style="display: block; margin-bottom: 5px; font-weight: bold;">LLM Provider:</label>
         <select id="llm-provider" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-          <option value="openai" ${this.llmProvider === 'openai' ? 'selected' : ''}>OpenAI (GPT-4, GPT-3.5)</option>
-          <option value="anthropic" ${this.llmProvider === 'anthropic' ? 'selected' : ''}>Anthropic (Claude)</option>
-          <option value="google" ${this.llmProvider === 'google' ? 'selected' : ''}>Google (Gemini)</option>
+          <option value="openai" {{openaiSelected}}>OpenAI (GPT-4, GPT-3.5)</option>
+          <option value="anthropic" {{anthropicSelected}}>Anthropic (Claude)</option>
+          <option value="google" {{googleSelected}}>Google (Gemini)</option>
         </select>
       </div>
 
       <div style="margin-bottom: 15px;">
         <label style="display: block; margin-bottom: 5px; font-weight: bold;">Model:</label>
         <select id="llm-model" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-          <option value="gpt-4" ${this.llmModel === 'gpt-4' ? 'selected' : ''}>GPT-4</option>
-          <option value="gpt-3.5-turbo" ${this.llmModel === 'gpt-3.5-turbo' ? 'selected' : ''}>GPT-3.5 Turbo</option>
+          <option value="gpt-4" {{gpt4Selected}}>GPT-4</option>
+          <option value="gpt-3.5-turbo" {{gpt35Selected}}>GPT-3.5 Turbo</option>
         </select>
       </div>
 
       <div style="margin-bottom: 15px;">
         <label style="display: block; margin-bottom: 5px; font-weight: bold;">API Key:</label>
         <input type="password" id="llm-api-key" placeholder="Enter your API key" 
-               value="${this.llmApiKey || ''}" 
+               value="" 
                style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
         <small style="color: #666; display: block; margin-top: 5px;">
           Your API key is stored locally and never sent anywhere except to your chosen LLM provider.
@@ -2352,8 +2414,8 @@ Make it professional, specific to their research needs, and optimized for AI res
 
       <div style="margin-bottom: 15px;">
         <strong>Status:</strong> 
-        <span style="color: ${this.llmEnabled ? '#28a745' : '#dc3545'};">
-          ${this.llmEnabled ? '✅ Connected' : '❌ Not configured'}
+        <span style="color: {{statusColor}};">
+          {{statusText}}
         </span>
       </div>
 
@@ -2376,6 +2438,26 @@ Make it professional, specific to their research needs, and optimized for AI res
         • <strong>Google:</strong> Visit <a href="https://makersuite.google.com/app/apikey" target="_blank">makersuite.google.com/app/apikey</a>
       </div>
     `;
+
+    const safeSettingsHtml = this.security.createSafeTemplate(settingsTemplate, {
+      openaiSelected: this.llmProvider === 'openai' ? 'selected' : '',
+      anthropicSelected: this.llmProvider === 'anthropic' ? 'selected' : '',
+      googleSelected: this.llmProvider === 'google' ? 'selected' : '',
+      gpt4Selected: this.llmModel === 'gpt-4' ? 'selected' : '',
+      gpt35Selected: this.llmModel === 'gpt-3.5-turbo' ? 'selected' : '',
+      statusColor: this.llmEnabled ? '#28a745' : '#dc3545',
+      statusText: this.llmEnabled ? '✅ Connected' : '❌ Not configured'
+    });
+
+    panel.innerHTML = safeSettingsHtml;
+    
+    // SECURITY FIX: Set API key value separately to avoid XSS in template
+    setTimeout(() => {
+      const apiKeyInput = document.getElementById('llm-api-key');
+      if (apiKeyInput && this.llmApiKey) {
+        apiKeyInput.value = this.llmApiKey;
+      }
+    }, 0);
 
     overlay.appendChild(panel);
     container.appendChild(overlay);
@@ -2407,25 +2489,26 @@ Make it professional, specific to their research needs, and optimized for AI res
     const closeButton = document.getElementById('close-settings');
 
     if (saveButton) {
-      saveButton.addEventListener('click', () => this.saveSettings(settingsId));
+      this.addEventListenerTracked(saveButton, 'click', () => this.saveSettings(settingsId));
     }
 
     if (testButton) {
-      testButton.addEventListener('click', () => this.testConnection());
+      this.addEventListenerTracked(testButton, 'click', () => this.testConnection());
     }
 
     if (closeButton) {
-      closeButton.addEventListener('click', () => this.hideSettings());
+      this.addEventListenerTracked(closeButton, 'click', () => this.hideSettings());
     }
 
     // Close on overlay click
     const overlay = document.getElementById(settingsId);
     if (overlay) {
-      overlay.addEventListener('click', (e) => {
+      const handleOverlayClick = (e) => {
         if (e.target === overlay) {
           this.hideSettings();
         }
-      });
+      };
+      this.addEventListenerTracked(overlay, 'click', handleOverlayClick);
     }
   }
 
@@ -2749,14 +2832,6 @@ Make it professional, specific to their research needs, and optimized for AI res
  *  Bootstrap
  * ================================================================ */
 
-const aipg = new AIPromptingGuide();
-// Initialise as soon as possible – but wait for DOM ready
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', aipg.initialize);
-} else {
-  aipg.initialize();
-}
-
 /* ================================================================
  *  Message listener for popup communication
  * ================================================================ */
@@ -2792,4 +2867,26 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
   
   return true; // Keep message channel open for async response
+});
+
+// Initialize the extension with proper cleanup
+const aipg = new AIPromptingGuide();
+
+// Initialize on DOM ready or immediately if already loaded
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', aipg.initialize);
+} else {
+  aipg.initialize();
+}
+
+// Clean up resources when page unloads
+window.addEventListener('beforeunload', () => {
+  console.log('[AIPG] Page unloading, cleaning up resources');
+  aipg.cleanup();
+});
+
+// Clean up if the extension context is invalidated
+window.addEventListener('unload', () => {
+  console.log('[AIPG] Page unload, cleaning up resources');
+  aipg.cleanup();
 });

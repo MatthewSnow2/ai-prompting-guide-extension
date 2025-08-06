@@ -1,0 +1,184 @@
+name: 🔒 Security Issue
+description: Report a security vulnerability (please use private reporting for sensitive issues)
+title: "[SECURITY] "
+labels: ["security", "needs-immediate-attention"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ⚠️ **IMPORTANT**: If this is a sensitive security vulnerability, please use GitHub's private vulnerability reporting feature instead of creating a public issue.
+        
+        Navigate to the Security tab → "Report a vulnerability" for private reporting.
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity Level
+      description: How severe is this security issue?
+      options:
+        - Critical (Remote code execution, data breach)
+        - High (Privilege escalation, significant data exposure)
+        - Medium (Limited data exposure, authentication bypass)
+        - Low (Information disclosure, minor security concerns)
+        - Informational (Security best practice suggestions)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: vulnerability-type
+    attributes:
+      label: Vulnerability Type
+      description: What type of security issue is this?
+      options:
+        - Cross-Site Scripting (XSS)
+        - Content Security Policy (CSP) bypass
+        - Privilege escalation
+        - Data injection/manipulation
+        - Information disclosure
+        - Authentication/authorization issue
+        - Insecure data storage
+        - Insecure communication
+        - Dependency vulnerability
+        - Configuration issue
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: vulnerability-description
+    attributes:
+      label: Vulnerability Description
+      description: Describe the security issue in detail (avoid sensitive details in public issues)
+      placeholder: "The extension is vulnerable to..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: affected-components
+    attributes:
+      label: Affected Components
+      description: Which parts of the extension are affected?
+      placeholder: |
+        - Popup interface
+        - Content scripts
+        - Background script
+        - Manifest configuration
+        - Data storage
+        - External communications
+    validations:
+      required: true
+
+  - type: textarea
+    id: impact-assessment
+    attributes:
+      label: Impact Assessment
+      description: What is the potential impact of this vulnerability?
+      placeholder: |
+        - User data could be...
+        - Attacker could...
+        - Extension could be used to...
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction-steps
+    attributes:
+      label: Steps to Reproduce
+      description: How can this vulnerability be reproduced? (Be careful not to include exploit details in public issues)
+      placeholder: |
+        1. Navigate to...
+        2. Perform action...
+        3. Observe that...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: attack-vector
+    attributes:
+      label: Attack Vector
+      description: How could this vulnerability be exploited?
+      options:
+        - Remote (network-based attack)
+        - Local (requires local access)
+        - User interaction required
+        - No user interaction required
+        - Social engineering
+        - Physical access required
+    validations:
+      required: true
+
+  - type: input
+    id: affected-versions
+    attributes:
+      label: Affected Versions
+      description: Which versions of the extension are affected?
+      placeholder: "e.g., 1.0.0 - 1.2.0, or 'all versions'"
+    validations:
+      required: true
+
+  - type: textarea
+    id: mitigation-suggestions
+    attributes:
+      label: Suggested Mitigation
+      description: Do you have suggestions for how to fix this vulnerability?
+      placeholder: |
+        - Implement input validation for...
+        - Update CSP to restrict...
+        - Sanitize data before...
+
+  - type: textarea
+    id: references
+    attributes:
+      label: References
+      description: Any relevant CVEs, security advisories, or research papers?
+      placeholder: |
+        - CVE-XXXX-XXXX
+        - https://example.com/security-advisory
+        - Similar issues in other extensions
+
+  - type: checkboxes
+    id: disclosure-timeline
+    attributes:
+      label: Responsible Disclosure
+      description: Please confirm your approach to disclosure
+      options:
+        - label: I am following responsible disclosure practices
+          required: true
+        - label: I will not publicly disclose details until a fix is available
+          required: true
+        - label: I am willing to work with the team to validate and fix this issue
+          required: true
+
+  - type: textarea
+    id: contact-info
+    attributes:
+      label: Contact Information
+      description: How can we reach you for follow-up questions? (Optional but recommended for security issues)
+      placeholder: "Email: security@example.com or GitHub: @username"
+
+  - type: checkboxes
+    id: additional-info
+    attributes:
+      label: Additional Information
+      options:
+        - label: I have a proof-of-concept exploit (willing to share privately)
+        - label: This affects other similar extensions
+        - label: This is related to a browser vulnerability
+        - label: I am reporting this as part of a security research program
+        - label: I would like to be credited in the security advisory (if one is published)
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        
+        **Next Steps:**
+        1. We will acknowledge receipt of this report within 48 hours
+        2. We will investigate and validate the issue
+        3. We will develop and test a fix
+        4. We will coordinate disclosure and release timing with you
+        5. We will provide credit in our security advisory (if desired)
+        
+        Thank you for helping to keep our users safe!

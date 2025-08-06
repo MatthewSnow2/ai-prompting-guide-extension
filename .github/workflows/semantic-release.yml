@@ -1,0 +1,159 @@
+name: Semantic Release
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  id-token: write
+
+jobs:
+  semantic-release:
+    name: Semantic Release
+    runs-on: ubuntu-latest
+    if: github.repository_owner == 'MatthewSnow2'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        token: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Install semantic-release dependencies
+      run: |
+        npm install --save-dev \
+          semantic-release \
+          @semantic-release/changelog \
+          @semantic-release/git \
+          @semantic-release/github \
+          @semantic-release/npm \
+          conventional-changelog-conventionalcommits
+        
+    - name: Verify the integrity of provenance attestations
+      run: npm audit signatures
+      
+    - name: Run tests before release
+      run: |
+        npm run lint
+        npm run test:unit
+        npm run test:integration
+        npm run test:security
+        node scripts/validate-manifest.js
+        node scripts/check-permissions.js
+        
+    - name: Create semantic-release config
+      run: |
+        cat > .releaserc.json << 'EOF'
+        {
+          "branches": [
+            "main",
+            {
+              "name": "develop",
+              "prerelease": "beta"
+            },
+            {
+              "name": "hotfix/*",
+              "prerelease": "hotfix"
+            }
+          ],
+          "plugins": [
+            [
+              "@semantic-release/commit-analyzer",
+              {
+                "preset": "conventionalcommits",
+                "releaseRules": [
+                  { "type": "feat", "release": "minor" },
+                  { "type": "fix", "release": "patch" },
+                  { "type": "perf", "release": "patch" },
+                  { "type": "revert", "release": "patch" },
+                  { "type": "docs", "release": false },
+                  { "type": "style", "release": false },
+                  { "type": "chore", "release": false },
+                  { "type": "refactor", "release": "patch" },
+                  { "type": "test", "release": false },
+                  { "type": "build", "release": false },
+                  { "type": "ci", "release": false },
+                  { "scope": "BREAKING", "release": "major" }
+                ]
+              }
+            ],
+            [
+              "@semantic-release/release-notes-generator",
+              {
+                "preset": "conventionalcommits",
+                "presetConfig": {
+                  "types": [
+                    { "type": "feat", "section": "✨ Features" },
+                    { "type": "fix", "section": "🐛 Bug Fixes" },
+                    { "type": "perf", "section": "⚡ Performance" },
+                    { "type": "revert", "section": "⏪ Reverts" },
+                    { "type": "refactor", "section": "♻️ Refactoring" },
+                    { "type": "security", "section": "🔒 Security" }
+                  ]
+                }
+              }
+            ],
+            [
+              "@semantic-release/changelog",
+              {
+                "changelogFile": "CHANGELOG.md",
+                "changelogTitle": "# Changelog\n\nAll notable changes to the AI Prompting Guide Extension will be documented in this file.\n\nThe format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),\nand this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)."
+              }
+            ],
+            [
+              "@semantic-release/exec",
+              {
+                "prepareCmd": "npm run build && node scripts/update-manifest-version.js ${nextRelease.version}",
+                "publishCmd": "node scripts/create-extension-package.js ${nextRelease.version}"
+              }
+            ],
+            [
+              "@semantic-release/github",
+              {
+                "assets": [
+                  {
+                    "path": "extension-v*.zip",
+                    "label": "Chrome Extension Package"
+                  },
+                  {
+                    "path": "extension-v*.zip.sha256",
+                    "label": "Package Checksum"
+                  }
+                ],
+                "assignees": ["MatthewSnow2"],
+                "addReleases": "bottom"
+              }
+            ],
+            [
+              "@semantic-release/git",
+              {
+                "assets": [
+                  "package.json",
+                  "manifest.json",
+                  "CHANGELOG.md"
+                ],
+                "message": "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
+              }
+            ]
+          ]
+        }
+        EOF
+        
+    - name: Release
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: npx semantic-release

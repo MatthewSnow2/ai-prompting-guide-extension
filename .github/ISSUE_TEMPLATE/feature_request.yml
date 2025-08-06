@@ -1,0 +1,188 @@
+name: ✨ Feature Request
+description: Suggest a new feature or enhancement for the AI Prompting Guide extension
+title: "[FEATURE] "
+labels: ["enhancement", "needs-triage"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting a new feature! Please provide as much detail as possible to help us understand your request.
+
+  - type: dropdown
+    id: feature-type
+    attributes:
+      label: Feature Type
+      description: What type of feature are you requesting?
+      options:
+        - UI/UX Enhancement
+        - New AI Model Support
+        - New Specialist Category
+        - Integration with External Service
+        - Performance Improvement
+        - Accessibility Feature
+        - Security Enhancement
+        - Developer Experience
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem-statement
+    attributes:
+      label: Problem Statement
+      description: What problem does this feature solve? What need does it address?
+      placeholder: "As a user, I find it difficult to..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-solution
+    attributes:
+      label: Proposed Solution
+      description: Describe the feature you'd like to see implemented
+      placeholder: "I would like the extension to..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: user-story
+    attributes:
+      label: User Story
+      description: Describe how this feature would be used
+      placeholder: |
+        As a [type of user], 
+        I want [feature/capability], 
+        so that [benefit/value].
+    validations:
+      required: true
+
+  - type: dropdown
+    id: user-type
+    attributes:
+      label: Primary User Type
+      description: Who would primarily benefit from this feature?
+      options:
+        - Content creators
+        - Developers/programmers
+        - Researchers/academics
+        - Business users
+        - Students
+        - General users
+        - All users
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority Level
+      description: How important is this feature to you?
+      options:
+        - Critical (blocking my workflow)
+        - High (would significantly improve my experience)
+        - Medium (nice to have)
+        - Low (minor improvement)
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance Criteria
+      description: What would need to be true for this feature to be considered complete?
+      placeholder: |
+        - [ ] Feature should do X
+        - [ ] Feature should handle Y scenario
+        - [ ] Feature should not break Z
+    validations:
+      required: true
+
+  - type: textarea
+    id: mockups-examples
+    attributes:
+      label: Mockups/Examples
+      description: |
+        If you have mockups, screenshots, or examples from other tools, please share them here.
+        You can drag and drop images into this text area.
+
+  - type: checkboxes
+    id: extension-areas
+    attributes:
+      label: Which parts of the extension would this affect?
+      description: Select all that apply
+      options:
+        - label: Popup interface
+        - label: Content script functionality
+        - label: Background processing
+        - label: Settings/configuration
+        - label: Keyboard shortcuts
+        - label: Context menus
+        - label: AI model data
+        - label: Specialist categories
+        - label: Extension manifest/permissions
+
+  - type: dropdown
+    id: complexity
+    attributes:
+      label: Estimated Complexity
+      description: How complex do you think this feature would be to implement?
+      options:
+        - Simple (minor UI change or data update)
+        - Medium (new functionality but within existing patterns)
+        - Complex (significant new functionality or architectural changes)
+        - Very Complex (major overhaul or external integrations)
+        - Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternative Solutions
+      description: Have you considered any alternative approaches or workarounds?
+      placeholder: "I've tried..., but it doesn't work because..."
+
+  - type: checkboxes
+    id: compatibility-considerations
+    attributes:
+      label: Compatibility Considerations
+      description: Select any relevant compatibility concerns
+      options:
+        - label: Should work across all Chromium browsers
+        - label: Should work in incognito mode
+        - label: Should not require additional permissions
+        - label: Should maintain existing user data/settings
+        - label: Should be accessible (screen readers, keyboard navigation)
+        - label: Should work offline (if relevant)
+
+  - type: textarea
+    id: security-privacy
+    attributes:
+      label: Security & Privacy Considerations
+      description: Are there any security or privacy implications for this feature?
+      placeholder: "This feature would need to handle user data by..."
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: |
+        Any other information that would help us understand or implement this feature?
+        Links to similar features in other tools, research, or use cases are helpful.
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      description: Please confirm the following
+      options:
+        - label: I have searched existing issues to ensure this isn't already requested
+          required: true
+        - label: This feature aligns with the extension's purpose (AI prompting guidance)
+          required: true
+        - label: I understand this is a feature request and not a bug report
+          required: true
+        - label: I'm willing to provide additional clarification if needed
+          required: true

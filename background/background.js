@@ -208,14 +208,122 @@ async function saveCustomRules(rules, isGlobal = false, specialistId = null) {
 }
 
 /**
+ * Validate and sanitize incoming messages
+ * @param {Object} message - The message to validate
+ * @param {Object} sender - Message sender info
+ * @returns {Object|null} - Sanitized message or null if invalid
+ */
+function validateMessage(message, sender) {
+  // Validate sender - only allow from our own extension and web pages
+  if (!sender.tab && !sender.id) {
+    console.warn('AI Prompting Guide: Invalid sender');
+    return null;
+  }
+
+  // Validate message structure
+  if (!message || typeof message !== 'object' || !message.action) {
+    console.warn('AI Prompting Guide: Invalid message structure');
+    return null;
+  }
+
+  // Sanitize message content
+  const sanitized = {};
+  const allowedActions = [
+    'getSpecialists', 'getModels', 'ping', 'getUserPreferences', 
+    'getSpecialistDetails', 'getModelDetails', 'saveUserPreferences',
+    'saveUserNotes', 'saveCustomRules', 'generateResponse', 'toggleInterface'
+  ];
+
+  if (!allowedActions.includes(message.action)) {
+    console.warn('AI Prompting Guide: Unknown action:', message.action);
+    return null;
+  }
+
+  sanitized.action = message.action;
+
+  // Sanitize action-specific data
+  const stringFields = ['specialistId', 'modelId', 'message'];
+  stringFields.forEach(field => {
+    if (message[field] && typeof message[field] === 'string') {
+      // Basic XSS prevention for string fields
+      sanitized[field] = message[field]
+        .replace(/<script[^>]*>.*?<\/script>/gis, '')
+        .replace(/javascript:/gi, '')
+        .replace(/on\w+\s*=/gi, '');
+    }
+  });
+
+  // Handle object fields with validation
+  if (message.preferences && typeof message.preferences === 'object') {
+    sanitized.preferences = sanitizePreferences(message.preferences);
+  }
+
+  if (message.notes && typeof message.notes === 'string') {
+    sanitized.notes = message.notes.replace(/<script[^>]*>.*?<\/script>/gis, '');
+  }
+
+  if (message.rules && Array.isArray(message.rules)) {
+    sanitized.rules = message.rules.map(rule => 
+      typeof rule === 'string' ? rule.replace(/<script[^>]*>.*?<\/script>/gis, '') : ''
+    );
+    sanitized.isGlobal = !!message.isGlobal;
+  }
+
+  return sanitized;
+}
+
+/**
+ * Sanitize user preferences
+ * @param {Object} prefs - Preferences to sanitize
+ * @returns {Object} - Sanitized preferences
+ */
+function sanitizePreferences(prefs) {
+  const sanitized = {};
+  const allowedFields = ['position', 'size', 'currentSpecialist', 'currentModel', 'isVisible'];
+  
+  allowedFields.forEach(field => {
+    if (prefs[field] !== undefined) {
+      if (field === 'position' || field === 'size') {
+        // Validate numeric values
+        if (typeof prefs[field] === 'object') {
+          sanitized[field] = {};
+          ['x', 'y', 'width', 'height'].forEach(prop => {
+            if (typeof prefs[field][prop] === 'number' && 
+                isFinite(prefs[field][prop]) && 
+                prefs[field][prop] >= 0 && 
+                prefs[field][prop] <= 10000) {
+              sanitized[field][prop] = prefs[field][prop];
+            }
+          });
+        }
+      } else if (field === 'isVisible') {
+        sanitized[field] = !!prefs[field];
+      } else if (typeof prefs[field] === 'string') {
+        sanitized[field] = prefs[field].replace(/[<>]/g, '');
+      }
+    }
+  });
+
+  return sanitized;
+}
+
+/**
  * Set up message listeners for communication with content scripts
  */
 function setupMessageListeners() {
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     console.log('AI Prompting Guide: Received message', message);
     
-    // Handle different message types
-    switch (message.action) {
+    // SECURITY FIX: Validate and sanitize all incoming messages
+    const validatedMessage = validateMessage(message, sender);
+    if (!validatedMessage) {
+      sendResponse({ error: 'Invalid message' });
+      return false;
+    }
+    
+    try {
+      // Handle different message types
+      switch (validatedMessage.action) {
       case 'getSpecialists':
         sendResponse({ specialists });
         break;
@@ -242,11 +350,11 @@ function setupMessageListeners() {
         break;
         
       case 'getSpecialistDetails':
-        const specialist = specialists.find(s => s.id === message.specialistId);
+        const specialist = specialists.find(s => s.id === validatedMessage.specialistId);
         if (specialist) {
           // Add user notes if available
-          if (userNotes[message.specialistId]) {
-            specialist.notes = userNotes[message.specialistId];
+          if (userNotes[validatedMessage.specialistId]) {
+            specialist.notes = userNotes[validatedMessage.specialistId];
           }
           sendResponse({ specialist });
         } else {
@@ -255,7 +363,7 @@ function setupMessageListeners() {
         break;
         
       case 'getModelDetails':
-        const model = models.find(m => m.id === message.modelId);
+        const model = models.find(m => m.id === validatedMessage.modelId);
         if (model) {
           sendResponse({ model });
         } else {
@@ -264,25 +372,25 @@ function setupMessageListeners() {
         break;
         
       case 'saveUserPreferences':
-        saveUserPreferences(message.preferences)
+        saveUserPreferences(validatedMessage.preferences)
           .then(() => sendResponse({ success: true }))
           .catch(error => sendResponse({ success: false, error: error.message }));
         return true; // Keep the message channel open for async response
         
       case 'saveUserNotes':
-        saveUserNotes(message.specialistId, message.notes)
+        saveUserNotes(validatedMessage.specialistId, validatedMessage.notes)
           .then(() => sendResponse({ success: true }))
           .catch(error => sendResponse({ success: false, error: error.message }));
         return true; // Keep the message channel open for async response
         
       case 'saveCustomRules':
-        saveCustomRules(message.rules, message.isGlobal, message.specialistId)
+        saveCustomRules(validatedMessage.rules, validatedMessage.isGlobal, validatedMessage.specialistId)
           .then(() => sendResponse({ success: true }))
           .catch(error => sendResponse({ success: false, error: error.message }));
         return true; // Keep the message channel open for async response
         
       case 'generateResponse':
-        generateAdvice(message.specialistId, message.modelId, message.message)
+        generateAdvice(validatedMessage.specialistId, validatedMessage.modelId, validatedMessage.message)
           .then(response => sendResponse({ message: response }))
           .catch(error => sendResponse({ error: error.message }));
         return true; // Keep the message channel open for async response
@@ -300,6 +408,10 @@ function setupMessageListeners() {
         
       default:
         sendResponse({ error: 'Unknown action' });
+      }
+    } catch (error) {
+      console.error('AI Prompting Guide: Error processing message:', error);
+      sendResponse({ error: 'Internal server error' });
     }
     
     return true; // Keep the message channel open for async response

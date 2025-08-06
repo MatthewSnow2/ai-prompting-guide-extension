@@ -1,0 +1,75 @@
+repos:
+  # Code formatting and linting
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+        exclude: ^(manifest\.json)$  # Chrome manifest has trailing commas
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: check-executables-have-shebangs
+      - id: check-symlinks
+      - id: check-docstring-first
+      - id: debug-statements
+      - id: detect-private-key
+      - id: detect-aws-credentials
+
+  # JavaScript/Node.js specific hooks
+  - repo: https://github.com/pre-commit/mirrors-eslint
+    rev: v9.0.0
+    hooks:
+      - id: eslint
+        files: \.(js|jsx|ts|tsx)$
+        additional_dependencies:
+          - eslint@^9.0.0
+        args: [--fix]
+
+  # Security scanning
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.4.0
+    hooks:
+      - id: detect-secrets
+        args: ['--baseline', '.secrets.baseline']
+        exclude: ^(package-lock\.json|\.secrets\.baseline)$
+
+  # Custom hooks for Chrome extension validation
+  - repo: local
+    hooks:
+      - id: manifest-validation
+        name: Validate Chrome Extension Manifest
+        entry: node
+        args: [scripts/validate-manifest.js]
+        language: node
+        files: ^manifest\.json$
+        
+      - id: security-scan
+        name: Security Scan for Chrome Extension
+        entry: npm
+        args: [run, test:security]
+        language: node
+        pass_filenames: false
+        files: \.(js|json)$
+        
+      - id: test-runner
+        name: Run Unit Tests
+        entry: npm
+        args: [run, test:unit]
+        language: node
+        pass_filenames: false
+        files: \.(js|json)$
+        
+      - id: permissions-check
+        name: Check Extension Permissions
+        entry: node
+        args: [scripts/check-permissions.js]
+        language: node
+        files: ^manifest\.json$
+
+# Configuration
+default_install_hook_types: [pre-commit, pre-push, commit-msg]
+default_stages: [commit]
+fail_fast: true
+minimum_pre_commit_version: '3.0.0'

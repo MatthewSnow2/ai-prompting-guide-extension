@@ -1,0 +1,33 @@
+# Ignore build artifacts
+node_modules/
+dist/
+build/
+coverage/
+
+# Ignore package files
+package-lock.json
+*.tgz
+
+# Ignore generated files
+CHANGELOG.md
+
+# Ignore extension packages
+*.zip
+*.crx
+
+# Ignore test artifacts
+test-results/
+screenshots/
+
+# Ignore OS files
+.DS_Store
+Thumbs.db
+
+# Ignore IDE files
+.vscode/
+.idea/
+
+# Ignore temporary files
+*.tmp
+*.temp
+*.log

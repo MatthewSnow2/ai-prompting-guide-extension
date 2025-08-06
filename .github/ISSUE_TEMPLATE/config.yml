@@ -1,0 +1,14 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 General Discussion
+    url: https://github.com/MatthewSnow2/ai-prompting-guide-extension/discussions
+    about: Ask questions, share ideas, or discuss the extension with the community
+  - name: 📚 Documentation
+    url: https://github.com/MatthewSnow2/ai-prompting-guide-extension/blob/main/README.md
+    about: Check the documentation, installation guide, and usage instructions
+  - name: 🔒 Private Security Report
+    url: https://github.com/MatthewSnow2/ai-prompting-guide-extension/security/advisories/new
+    about: Report sensitive security vulnerabilities privately
+  - name: 🌟 Chrome Web Store
+    url: https://chrome.google.com/webstore
+    about: Install the extension from the Chrome Web Store (when available)

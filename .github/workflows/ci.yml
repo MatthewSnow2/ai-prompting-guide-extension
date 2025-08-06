@@ -1,0 +1,257 @@
+name: Continuous Integration
+
+on:
+  push:
+    branches: [ main, develop, 'feature/*', 'hotfix/*' ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  NODE_VERSION: '18'
+  
+jobs:
+  test:
+    name: Test Suite
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [16, 18, 20]
+        
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Run linting
+      run: npm run lint
+      
+    - name: Validate manifest
+      run: node scripts/validate-manifest.js
+      
+    - name: Check permissions
+      run: node scripts/check-permissions.js
+      
+    - name: Run unit tests
+      run: npm run test:unit
+      
+    - name: Run integration tests
+      run: npm run test:integration
+      
+    - name: Run security tests
+      run: npm run test:security
+      
+    - name: Run performance tests
+      run: npm run test:performance
+      
+    - name: Generate test coverage
+      run: npm run test:coverage
+      
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage/lcov.info
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
+
+  security-scan:
+    name: Security Scanning
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Run npm audit
+      run: npm audit --audit-level moderate
+      continue-on-error: true
+      
+    - name: Run security linting
+      run: |
+        npx eslint . --ext .js --config .eslintrc.js --env node --rule 'no-eval: error, no-implied-eval: error'
+        
+    - name: Check for secrets
+      uses: trufflesecurity/trufflehog@main
+      with:
+        path: ./
+        base: ${{ github.event.repository.default_branch }}
+        head: HEAD
+        extra_args: --debug --only-verified
+        
+    - name: Dependency vulnerability scan
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+        
+    - name: Upload Trivy scan results
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+  extension-validation:
+    name: Chrome Extension Validation
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Validate extension structure
+      run: |
+        # Check required files exist
+        test -f manifest.json || { echo "manifest.json missing"; exit 1; }
+        test -d popup || { echo "popup directory missing"; exit 1; }
+        test -d content || { echo "content directory missing"; exit 1; }
+        test -d background || { echo "background directory missing"; exit 1; }
+        test -d images || { echo "images directory missing"; exit 1; }
+        
+    - name: Validate icon files
+      run: |
+        # Check all required icon sizes exist
+        for size in 16 32 48 128; do
+          test -f "images/icon${size}.png" || { echo "Icon ${size}x${size} missing"; exit 1; }
+        done
+        
+    - name: Check file sizes
+      run: |
+        # Ensure no single file exceeds reasonable limits for Chrome Web Store
+        find . -name "*.js" -size +1M -exec echo "Large JS file: {}" \;
+        find . -name "*.css" -size +100k -exec echo "Large CSS file: {}" \;
+        
+    - name: Build extension package (dry run)
+      run: |
+        # Create a temporary build to verify everything packages correctly
+        mkdir -p build
+        cp manifest.json build/
+        cp -r popup build/
+        cp -r content build/
+        cp -r background build/
+        cp -r images build/
+        cp -r data build/
+        
+    - name: Calculate package size
+      run: |
+        cd build
+        size=$(du -sh . | cut -f1)
+        echo "Extension package size: $size"
+        # Chrome Web Store has a 128MB limit, warn if approaching
+        size_bytes=$(du -sb . | cut -f1)
+        if [ $size_bytes -gt 100000000 ]; then
+          echo "Warning: Extension size approaching Chrome Web Store limit"
+        fi
+
+  browser-compatibility:
+    name: Browser Compatibility Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Install Puppeteer
+      run: npm install puppeteer
+      
+    - name: Run E2E tests
+      run: npm run test:e2e
+      
+    - name: Chrome Extension API compatibility check
+      run: |
+        # Basic check for Chrome Extension API usage compatibility
+        echo "Checking for deprecated Chrome Extension APIs..."
+        if grep -r "chrome\.extension\." . --exclude-dir=node_modules; then
+          echo "Warning: Deprecated chrome.extension API found"
+        fi
+        if grep -r "chrome\.browserAction" . --exclude-dir=node_modules; then
+          echo "Warning: Deprecated chrome.browserAction API found (use chrome.action)"
+        fi
+        
+  code-quality:
+    name: Code Quality Analysis
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Full history for better analysis
+        
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Code complexity analysis
+      run: |
+        npx jscpd . --reporters json --output ./jscpd-report.json || true
+        
+    - name: Check code duplication
+      run: |
+        if [ -f ./jscpd-report.json ]; then
+          duplication=$(jq '.statistics.total.duplicatedLines' ./jscpd-report.json)
+          if [ "$duplication" != "null" ] && [ "$duplication" -gt 50 ]; then
+            echo "Warning: High code duplication detected ($duplication lines)"
+          fi
+        fi
+        
+    - name: JSDoc coverage check
+      run: |
+        # Check for function documentation coverage
+        js_functions=$(grep -r "function\|=>" . --include="*.js" --exclude-dir=node_modules | wc -l)
+        jsdoc_comments=$(grep -r "/\*\*" . --include="*.js" --exclude-dir=node_modules | wc -l)
+        echo "Functions: $js_functions, JSDoc comments: $jsdoc_comments"
+        
+    - name: Performance budget check
+      run: |
+        # Simple performance budget checks
+        total_js_size=$(find . -name "*.js" -not -path "./node_modules/*" -exec cat {} + | wc -c)
+        total_css_size=$(find . -name "*.css" -not -path "./node_modules/*" -exec cat {} + | wc -c)
+        echo "Total JS size: $total_js_size bytes"
+        echo "Total CSS size: $total_css_size bytes"
+        
+        # Warn if JS exceeds reasonable limits
+        if [ $total_js_size -gt 500000 ]; then
+          echo "Warning: Large JavaScript bundle size"
+        fi

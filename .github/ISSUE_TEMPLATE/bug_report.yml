@@ -1,0 +1,186 @@
+name: 🐛 Bug Report
+description: Report a bug or issue with the AI Prompting Guide extension
+title: "[BUG] "
+labels: ["bug", "needs-triage"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug! Please fill out the sections below to help us understand and reproduce the issue.
+
+  - type: input
+    id: extension-version
+    attributes:
+      label: Extension Version
+      description: Which version of the extension are you using?
+      placeholder: "e.g., 1.0.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: browser
+    attributes:
+      label: Browser
+      description: Which browser are you using?
+      options:
+        - Google Chrome
+        - Microsoft Edge
+        - Brave Browser
+        - Other Chromium-based browser
+    validations:
+      required: true
+
+  - type: input
+    id: browser-version
+    attributes:
+      label: Browser Version
+      description: What version of your browser are you using?
+      placeholder: "e.g., Chrome 120.0.6099.109"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating System
+      description: Which operating system are you using?
+      options:
+        - Windows 11
+        - Windows 10
+        - macOS Ventura
+        - macOS Monterey
+        - macOS Big Sur
+        - Ubuntu/Linux
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: bug-description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of what the bug is.
+      placeholder: "The extension crashes when..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps-to-reproduce
+    attributes:
+      label: Steps to Reproduce
+      description: Step-by-step instructions to reproduce the bug
+      placeholder: |
+        1. Go to '...'
+        2. Click on '....'
+        3. Scroll down to '....'
+        4. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: Expected Behavior
+      description: What you expected to happen
+      placeholder: "The extension should..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual-behavior
+    attributes:
+      label: Actual Behavior
+      description: What actually happened
+      placeholder: "Instead, the extension..."
+    validations:
+      required: true
+
+  - type: dropdown
+    id: frequency
+    attributes:
+      label: How often does this bug occur?
+      options:
+        - Every time
+        - Sometimes
+        - Rarely
+        - Only once
+    validations:
+      required: true
+
+  - type: textarea
+    id: console-errors
+    attributes:
+      label: Console Errors
+      description: |
+        Any error messages from the browser console? 
+        (Right-click → Inspect → Console tab)
+      render: shell
+
+  - type: textarea
+    id: extension-logs
+    attributes:
+      label: Extension Logs
+      description: |
+        Any relevant logs from chrome://extensions (Developer mode → Background page → Console)?
+      render: shell
+
+  - type: dropdown
+    id: website-context
+    attributes:
+      label: Website Context
+      description: On which type of websites does this occur?
+      options:
+        - All websites
+        - Specific websites (please list below)
+        - Social media platforms
+        - E-commerce sites
+        - News/blog sites
+        - Development tools
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: specific-websites
+    attributes:
+      label: Specific Websites (if applicable)
+      description: List specific websites where the bug occurs
+      placeholder: "https://example.com, https://another-site.com"
+
+  - type: checkboxes
+    id: extension-features
+    attributes:
+      label: Which extension features are affected?
+      description: Select all that apply
+      options:
+        - label: Popup interface
+        - label: Content script injection
+        - label: Background script functionality
+        - label: Storage/settings
+        - label: Keyboard shortcuts
+        - label: Context menus
+        - label: AI model suggestions
+        - label: Specialist recommendations
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: |
+        Add any other context about the problem here.
+        Screenshots, videos, or additional details are very helpful.
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      description: Please confirm the following
+      options:
+        - label: I have searched existing issues to ensure this is not a duplicate
+          required: true
+        - label: I have provided all the requested information above
+          required: true
+        - label: I have tested this with the extension in incognito mode (if relevant)
+          required: false

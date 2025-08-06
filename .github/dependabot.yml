@@ -1,0 +1,66 @@
+version: 2
+updates:
+  # Enable version updates for npm
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "MatthewSnow2"
+    assignees:
+      - "MatthewSnow2"
+    commit-message:
+      prefix: "chore"
+      prefix-development: "chore"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "javascript"
+    # Auto-merge security updates
+    allow:
+      - dependency-type: "all"
+    # Group related updates
+    groups:
+      testing-dependencies:
+        patterns:
+          - "jest*"
+          - "@types/jest"
+          - "puppeteer"
+          - "sinon*"
+        update-types:
+          - "minor"
+          - "patch"
+      linting-dependencies:
+        patterns:
+          - "eslint*"
+          - "@typescript-eslint/*"
+        update-types:
+          - "minor"
+          - "patch"
+      chrome-types:
+        patterns:
+          - "@types/chrome"
+        update-types:
+          - "minor"
+          - "patch"
+
+  # Enable version updates for GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "10:00"
+    reviewers:
+      - "MatthewSnow2"
+    assignees:
+      - "MatthewSnow2"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "github-actions"

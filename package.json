@@ -1,0 +1,58 @@
+{
+  "name": "ai-prompting-guide-extension",
+  "version": "1.0.0",
+  "description": "An intelligent prompting advisor and project guide for users working with LLMs and AI tools",
+  "scripts": {
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:unit": "jest --testPathPattern=unit",
+    "test:integration": "jest --testPathPattern=integration",
+    "test:e2e": "jest --testPathPattern=e2e",
+    "test:security": "jest --testPathPattern=security",
+    "test:performance": "jest --testPathPattern=performance",
+    "test:ci": "npm run lint && npm run test:coverage && npm run validate",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "validate": "npm run validate:manifest && npm run validate:permissions",
+    "validate:manifest": "node scripts/validate-manifest.js",
+    "validate:permissions": "node scripts/check-permissions.js",
+    "build": "npm run lint && npm run test && npm run validate",
+    "package": "node scripts/create-extension-package.js",
+    "security:scan": "npm audit && detect-secrets scan --baseline .secrets.baseline",
+    "prepare": "husky install || true",
+    "precommit": "npm run lint:fix && npm run test:unit && npm run validate"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0",
+    "@types/jest": "^29.5.8",
+    "@types/chrome": "^0.0.248",
+    "eslint": "^9.0.0",
+    "puppeteer": "^23.0.0",
+    "sinon": "^19.0.0",
+    "sinon-chrome": "^3.0.1",
+    "prettier": "^3.1.0",
+    "husky": "^8.0.3",
+    "jscpd": "^3.5.9"
+  },
+  "keywords": [
+    "chrome-extension",
+    "ai",
+    "prompting",
+    "llm",
+    "productivity"
+  ],
+  "author": "MatthewSnow2",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MatthewSnow2/ai-prompting-guide-extension.git"
+  },
+  "bugs": {
+    "url": "https://github.com/MatthewSnow2/ai-prompting-guide-extension/issues"
+  },
+  "homepage": "https://github.com/MatthewSnow2/ai-prompting-guide-extension#readme"
+}

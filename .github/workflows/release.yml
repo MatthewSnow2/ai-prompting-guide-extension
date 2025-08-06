@@ -1,0 +1,336 @@
+name: Release
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., 1.0.0)'
+        required: true
+        type: string
+      prerelease:
+        description: 'Create a prerelease'
+        required: false
+        type: boolean
+        default: false
+
+env:
+  NODE_VERSION: '18'
+
+jobs:
+  version-check:
+    name: Version Validation
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      is_prerelease: ${{ steps.version.outputs.is_prerelease }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Determine version
+      id: version
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          VERSION="${{ inputs.version }}"
+          IS_PRERELEASE="${{ inputs.prerelease }}"
+        elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+          VERSION="${{ github.ref_name }}"
+          VERSION="${VERSION#v}"  # Remove 'v' prefix
+          IS_PRERELEASE="false"
+        else
+          # Auto-increment patch version for main branch
+          CURRENT_VERSION=$(jq -r '.version' package.json)
+          IFS='.' read -ra VERSION_PARTS <<< "$CURRENT_VERSION"
+          NEW_PATCH=$((VERSION_PARTS[2] + 1))
+          VERSION="${VERSION_PARTS[0]}.${VERSION_PARTS[1]}.${NEW_PATCH}"
+          IS_PRERELEASE="true"
+        fi
+        
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "is_prerelease=$IS_PRERELEASE" >> $GITHUB_OUTPUT
+        echo "Version: $VERSION, Prerelease: $IS_PRERELEASE"
+
+  build:
+    name: Build Extension
+    needs: version-check
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Update version in manifest
+      run: |
+        jq '.version = "${{ needs.version-check.outputs.version }}"' manifest.json > manifest.tmp
+        mv manifest.tmp manifest.json
+        
+    - name: Update version in package.json
+      run: |
+        jq '.version = "${{ needs.version-check.outputs.version }}"' package.json > package.tmp
+        mv package.tmp package.json
+        
+    - name: Run full test suite
+      run: |
+        npm run lint
+        npm run test:unit
+        npm run test:integration
+        npm run test:security
+        npm run test:performance
+        
+    - name: Validate extension
+      run: |
+        node scripts/validate-manifest.js
+        node scripts/check-permissions.js
+        
+    - name: Create extension package
+      run: |
+        mkdir -p dist
+        
+        # Copy essential files
+        cp manifest.json dist/
+        cp -r popup dist/
+        cp -r content dist/
+        cp -r background dist/
+        cp -r images dist/
+        cp -r data dist/
+        
+        # Create ZIP package for Chrome Web Store
+        cd dist
+        zip -r ../extension-v${{ needs.version-check.outputs.version }}.zip .
+        cd ..
+        
+        # Calculate package size and validate
+        size=$(du -sh extension-v${{ needs.version-check.outputs.version }}.zip | cut -f1)
+        echo "Extension package size: $size"
+        
+    - name: Generate checksums
+      run: |
+        sha256sum extension-v${{ needs.version-check.outputs.version }}.zip > extension-v${{ needs.version-check.outputs.version }}.zip.sha256
+        
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: extension-package
+        path: |
+          extension-v${{ needs.version-check.outputs.version }}.zip
+          extension-v${{ needs.version-check.outputs.version }}.zip.sha256
+        retention-days: 30
+
+  security-final-check:
+    name: Final Security Validation
+    needs: [version-check, build]
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Download build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: extension-package
+        
+    - name: Security scan of built package
+      run: |
+        unzip extension-v${{ needs.version-check.outputs.version }}.zip -d package-scan/
+        
+        # Check for any suspicious patterns in built package
+        echo "Scanning for potential security issues..."
+        
+        # Check for eval usage
+        if grep -r "eval(" package-scan/ 2>/dev/null; then
+          echo "ERROR: eval() usage found in built package"
+          exit 1
+        fi
+        
+        # Check for external script loads
+        if grep -r "src=.*http" package-scan/ 2>/dev/null; then
+          echo "ERROR: External script references found"
+          exit 1
+        fi
+        
+        # Check for inline event handlers
+        if grep -r "onclick\|onload\|onerror" package-scan/ 2>/dev/null; then
+          echo "WARNING: Inline event handlers found"
+        fi
+        
+        echo "Security scan completed"
+        
+    - name: Verify package integrity
+      run: |
+        sha256sum -c extension-v${{ needs.version-check.outputs.version }}.zip.sha256
+        echo "Package integrity verified"
+
+  create-release:
+    name: Create GitHub Release
+    needs: [version-check, build, security-final-check]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        
+    - name: Download build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: extension-package
+        
+    - name: Generate release notes
+      run: |
+        # Get commits since last release
+        LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+        if [ -z "$LAST_TAG" ]; then
+          COMMITS=$(git log --oneline --no-merges | head -20)
+        else
+          COMMITS=$(git log ${LAST_TAG}..HEAD --oneline --no-merges)
+        fi
+        
+        # Create release notes
+        cat > release-notes.md << EOF
+        # Chrome Extension Release v${{ needs.version-check.outputs.version }}
+        
+        ## What's Changed
+        
+        EOF
+        
+        if [ ! -z "$COMMITS" ]; then
+          echo "$COMMITS" | while read line; do
+            echo "- $line" >> release-notes.md
+          done
+        else
+          echo "- Initial release" >> release-notes.md
+        fi
+        
+        cat >> release-notes.md << EOF
+        
+        ## Installation
+        
+        1. Download the extension package: \`extension-v${{ needs.version-check.outputs.version }}.zip\`
+        2. Extract the package or load directly in Chrome Extensions Developer Mode
+        3. For Chrome Web Store installation, wait for store approval
+        
+        ## Security
+        
+        - Package has been scanned for security vulnerabilities
+        - All dependencies have been audited
+        - Extension follows Chrome Web Store security policies
+        
+        ## Verification
+        
+        SHA256: \`$(cat extension-v${{ needs.version-check.outputs.version }}.zip.sha256 | cut -d' ' -f1)\`
+        EOF
+        
+    - name: Create Release
+      uses: ncipollo/release-action@v1
+      with:
+        tag: v${{ needs.version-check.outputs.version }}
+        name: "v${{ needs.version-check.outputs.version }}"
+        bodyFile: release-notes.md
+        artifacts: |
+          extension-v${{ needs.version-check.outputs.version }}.zip
+          extension-v${{ needs.version-check.outputs.version }}.zip.sha256
+        prerelease: ${{ needs.version-check.outputs.is_prerelease }}
+        token: ${{ secrets.GITHUB_TOKEN }}
+        generateReleaseNotes: false
+        
+    - name: Update version tags
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        
+        # Update manifest and package.json with new version
+        jq '.version = "${{ needs.version-check.outputs.version }}"' manifest.json > manifest.tmp
+        mv manifest.tmp manifest.json
+        jq '.version = "${{ needs.version-check.outputs.version }}"' package.json > package.tmp
+        mv package.tmp package.json
+        
+        # Only commit if this was an auto-increment (not a tagged release)
+        if [ "${{ github.event_name }}" != "push" ] || [ "${{ startsWith(github.ref, 'refs/tags/') }}" != "true" ]; then
+          git add manifest.json package.json
+          git commit -m "chore: bump version to ${{ needs.version-check.outputs.version }}"
+          git push origin main
+        fi
+
+  chrome-web-store-prep:
+    name: Chrome Web Store Preparation
+    needs: [version-check, build, security-final-check]
+    runs-on: ubuntu-latest
+    if: needs.version-check.outputs.is_prerelease == 'false'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Download build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: extension-package
+        
+    - name: Prepare store submission checklist
+      run: |
+        cat > store-submission-checklist.md << EOF
+        # Chrome Web Store Submission Checklist
+        
+        ## Pre-submission Verification ✅
+        - [x] Extension package built and tested
+        - [x] Security scan passed
+        - [x] All tests passing
+        - [x] Manifest validation passed
+        - [x] Permission analysis completed
+        
+        ## Manual Steps Required 📋
+        
+        ### 1. Chrome Web Store Developer Dashboard
+        - [ ] Login to [Chrome Web Store Developer Dashboard](https://chrome.google.com/webstore/devconsole/)
+        - [ ] Upload: \`extension-v${{ needs.version-check.outputs.version }}.zip\`
+        
+        ### 2. Store Listing Information
+        - [ ] Update extension description
+        - [ ] Add/update screenshots
+        - [ ] Set appropriate category
+        - [ ] Add detailed description
+        - [ ] Set privacy policy URL (if collecting user data)
+        
+        ### 3. Publishing Options
+        - [ ] Choose visibility (Public/Unlisted/Private)
+        - [ ] Select regions for distribution
+        - [ ] Set pricing (Free/Paid)
+        
+        ### 4. Review Process
+        - [ ] Submit for review
+        - [ ] Monitor review status
+        - [ ] Address any review feedback
+        
+        ## Package Information
+        - Version: v${{ needs.version-check.outputs.version }}
+        - Size: $(du -sh extension-v${{ needs.version-check.outputs.version }}.zip | cut -f1)
+        - SHA256: $(cat extension-v${{ needs.version-check.outputs.version }}.zip.sha256 | cut -d' ' -f1)
+        
+        ## Notes
+        - Chrome Web Store review typically takes 1-3 business days
+        - Ensure all URLs and links in the extension are working
+        - Test the extension in incognito mode before submission
+        EOF
+        
+    - name: Upload store preparation artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: store-submission-checklist
+        path: store-submission-checklist.md
+        retention-days: 90

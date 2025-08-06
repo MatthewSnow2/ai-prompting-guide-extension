@@ -9,8 +9,12 @@
     "scripting"
   ],
   "host_permissions": [
-    "<all_urls>"
+    "https://*/*",
+    "http://*/*"
   ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; style-src 'self' 'unsafe-inline'"
+  },
   "action": {
     "default_popup": "popup/popup.html",
     "default_icon": {
@@ -23,9 +27,11 @@
   },
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
-      "js": ["content/content.js"],
-      "css": ["content/content.css"]
+      "matches": ["https://*/*", "http://*/*"],
+      "js": ["content/security-utils.js", "content/content.js"],
+      "css": ["content/content.css"],
+      "run_at": "document_end",
+      "all_frames": false
     }
   ],
   "background": {

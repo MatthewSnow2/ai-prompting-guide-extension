@@ -204,7 +204,115 @@ You can adjust these in `chrome://extensions/shortcuts`.
 
 ---
 
-## 14. Contributing Guidelines
+## 14. Development & Git Workflow
+
+This project follows a production-ready Git workflow with automated testing, security scanning, and release management.
+
+### Quick Start for Developers
+
+```bash
+# Clone the repository
+git clone https://github.com/MatthewSnow2/ai-prompting-guide-extension.git
+cd ai-prompting-guide-extension
+
+# Install dependencies
+npm install
+
+# Run tests
+npm test
+
+# Validate extension
+npm run validate
+
+# Format code
+npm run format
+
+# Start development
+npm run test:watch
+```
+
+### Git Workflow Overview
+
+We use **GitHub Flow** with production-ready releases:
+
+- `main` - Production-ready code (protected)
+- `feature/*` - Feature development branches
+- `hotfix/*` - Critical production fixes
+
+### Commit Message Format
+
+Follow **Conventional Commits** specification:
+
+```bash
+git commit -m "feat(popup): add dark mode toggle"
+git commit -m "fix(security): resolve XSS vulnerability"
+git commit -m "docs: update installation guide"
+```
+
+### Quality Gates
+
+Every commit and PR is automatically checked for:
+
+- ✅ **Code Quality** - ESLint, Prettier formatting
+- ✅ **Security** - Vulnerability scanning, secret detection
+- ✅ **Testing** - Unit, integration, E2E, and security tests
+- ✅ **Chrome Extension Compliance** - Manifest validation, permission analysis
+- ✅ **Performance** - Memory usage, bundle size monitoring
+
+### Pre-commit Hooks
+
+Automated checks run before each commit:
+- Code formatting and linting
+- Security scanning
+- Unit tests
+- Extension manifest validation
+- Permission analysis
+
+### Automated Release Process
+
+Releases are automated using semantic versioning:
+1. Push commits with conventional commit messages
+2. Semantic release analyzes commits and determines version
+3. Automated testing runs full test suite
+4. Extension package is built and validated
+5. GitHub release is created with Chrome Web Store package
+6. Security validation and integrity checks complete
+
+### Security Practices
+
+- **Commit Signing** - GPG signatures recommended
+- **Secret Scanning** - Pre-commit hooks detect secrets
+- **Dependency Updates** - Dependabot auto-updates dependencies
+- **Vulnerability Scanning** - CodeQL and security audits
+- **Permission Monitoring** - Chrome extension permissions are analyzed
+
+### Testing Strategy
+
+- **Unit Tests** - Individual function testing
+- **Integration Tests** - Chrome API integration
+- **Security Tests** - XSS prevention, input validation
+- **Performance Tests** - Memory usage, DOM impact
+- **E2E Tests** - Full user workflow testing
+
+### Available Scripts
+
+```bash
+npm run lint          # Lint code
+npm run lint:fix      # Fix linting issues
+npm run format        # Format code with Prettier
+npm run test          # Run all tests
+npm run test:unit     # Run unit tests only
+npm run test:security # Run security tests
+npm run validate      # Validate extension
+npm run build         # Full build and validation
+npm run package       # Create extension package
+```
+
+For detailed workflow information, see [GIT_WORKFLOW.md](GIT_WORKFLOW.md).
+
+---
+
+## 15. Contributing Guidelines
 
 1. Fork the repo & create your branch: `git checkout -b feature/my-awesome-thing`  
 2. Commit your changes: `git commit -m 'Add awesome thing'`  
@@ -215,7 +323,7 @@ You can adjust these in `chrome://extensions/shortcuts`.
 
 ---
 
-## 10. License
+## 16. License
 
 MIT License © 2025 AI Factory & Contributors  
 See [`LICENSE`](LICENSE) for full text.
