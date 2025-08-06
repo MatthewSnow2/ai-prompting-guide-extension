@@ -139,7 +139,7 @@ jobs:
       uses: actions/checkout@v4
       
     - name: Download build artifacts
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v5
       with:
         name: extension-package
         
@@ -187,7 +187,7 @@ jobs:
         fetch-depth: 0
         
     - name: Download build artifacts
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v5
       with:
         name: extension-package
         
@@ -278,7 +278,7 @@ jobs:
       uses: actions/checkout@v4
       
     - name: Download build artifacts
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v5
       with:
         name: extension-package
         
