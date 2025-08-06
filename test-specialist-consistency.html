@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Specialist Consistency Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .specialist { border: 1px solid #ccc; margin: 10px; padding: 10px; }
+        .auto-progress { color: green; font-weight: bold; }
+        .no-auto-progress { color: red; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>AI Prompting Guide Extension - Specialist Consistency Test</h1>
+    <p>This page tests whether all specialists have consistent auto-progression behavior.</p>
+    
+    <button onclick="loadExtension()">Load Extension & Test Specialists</button>
+    <button onclick="clearResults()">Clear Results</button>
+    
+    <div id="results"></div>
+    
+    <script>
+        let specialists = [];
+        
+        async function loadExtension() {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<p>Loading specialists data...</p>';
+            
+            try {
+                // Load the specialists JSON file
+                const response = await fetch('data/specialists.json');
+                const data = await response.json();
+                specialists = data.specialists;
+                
+                resultsDiv.innerHTML = '';
+                
+                // Check each specialist for auto-progression capability
+                specialists.forEach(specialist => {
+                    const div = document.createElement('div');
+                    div.className = 'specialist';
+                    
+                    const hasAutoProgression = specialist.defaultPromptingTechniques && 
+                                             specialist.defaultPromptingTechniques.length > 0;
+                    
+                    const status = hasAutoProgression ? 
+                        '<span class="auto-progress">✅ HAS AUTO-PROGRESSION</span>' : 
+                        '<span class="no-auto-progress">❌ NO AUTO-PROGRESSION</span>';
+                    
+                    const stepCount = hasAutoProgression ? specialist.defaultPromptingTechniques.length : 0;
+                    
+                    div.innerHTML = `
+                        <h3>${specialist.icon} ${specialist.name}</h3>
+                        <p><strong>ID:</strong> ${specialist.id}</p>
+                        <p><strong>Status:</strong> ${status}</p>
+                        <p><strong>Steps:</strong> ${stepCount}</p>
+                        <p><strong>Welcome Message:</strong></p>
+                        <div style="background: #f5f5f5; padding: 10px; border-radius: 5px; font-size: 0.9em;">
+                            ${specialist.welcomeMessage.replace(/\n/g, '<br>')}
+                        </div>
+                    `;
+                    
+                    resultsDiv.appendChild(div);
+                });
+                
+                // Add summary
+                const autoProgressCount = specialists.filter(s => 
+                    s.defaultPromptingTechniques && s.defaultPromptingTechniques.length > 0
+                ).length;
+                
+                const summary = document.createElement('div');
+                summary.style.cssText = 'background: #e8f4f8; border: 2px solid #0066cc; padding: 15px; margin-top: 20px; border-radius: 5px;';
+                summary.innerHTML = `
+                    <h3>📊 Test Summary</h3>
+                    <p><strong>Total Specialists:</strong> ${specialists.length}</p>
+                    <p><strong>Auto-Progression Enabled:</strong> ${autoProgressCount}</p>
+                    <p><strong>Auto-Progression Disabled:</strong> ${specialists.length - autoProgressCount}</p>
+                    <p><strong>Consistency Status:</strong> ${autoProgressCount === specialists.length ? 
+                        '<span style="color: green; font-weight: bold;">✅ ALL CONSISTENT</span>' : 
+                        '<span style="color: orange; font-weight: bold;">⚠️ INCONSISTENT</span>'
+                    }</p>
+                `;
+                
+                resultsDiv.appendChild(summary);
+                
+            } catch (error) {
+                resultsDiv.innerHTML = `<p style="color: red;">Error loading specialists: ${error.message}</p>`;
+            }
+        }
+        
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+        
+        // Test the extension is loaded
+        window.addEventListener('load', () => {
+            if (typeof window.aipg !== 'undefined') {
+                console.log('AI Prompting Guide extension detected');
+            } else {
+                console.warn('AI Prompting Guide extension not detected');
+            }
+        });
+    </script>
+</body>
+</html>

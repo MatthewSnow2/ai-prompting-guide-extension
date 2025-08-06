@@ -471,8 +471,8 @@ class AIPromptingGuide {
         this.addAssistantMessage(specialist.welcomeMessage || 
           `Welcome! I'm your ${specialist.name} coach. Let's get started.`);
         
-        // Auto-start workflow for research specialist
-        if (specialistId === 'research-analysis' && specialist.defaultPromptingTechniques && 
+        // Auto-start workflow for any specialist with defined techniques
+        if (specialist.defaultPromptingTechniques && 
             specialist.defaultPromptingTechniques.length > 0) {
           setTimeout(() => {
             this.startWorkflow();
@@ -877,8 +877,8 @@ class AIPromptingGuide {
           `Welcome! I'm your ${specialist.name} coach. Let's get started.`);
       }
       
-      // Auto-start workflow for research specialist if it has techniques
-      if (specialist.id === 'research-analysis' && specialist.defaultPromptingTechniques && 
+      // Auto-start workflow for any specialist with defined techniques
+      if (specialist.defaultPromptingTechniques && 
           specialist.defaultPromptingTechniques.length > 0) {
         setTimeout(() => {
           this.startWorkflow();
