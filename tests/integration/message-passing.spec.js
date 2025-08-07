@@ -3,7 +3,6 @@
  * Tests communication flows between background, content, and popup scripts
  */
 
-const { ChromeApiMocks } = require('../mocks/chrome-apis');
 const { 
   testSpecialists, 
   testModels, 
@@ -12,26 +11,26 @@ const {
 } = require('../fixtures/test-data');
 
 describe('Message Passing Integration', () => {
-  let chromeMocks;
   let backgroundScript;
   let messageRoutes;
   
   beforeEach(() => {
-    chromeMocks = new ChromeApiMocks();
-    global.chrome = chromeMocks.chrome;
-    chromeMocks.setupDefaultBehaviors();
+    // Chrome API is already mocked in setup.js
+    // Just ensure we have fresh mocks for each test
+    jest.clearAllMocks();
+    
+    // Reset Chrome API lastError
+    chrome.runtime.lastError = null;
     
     // Mock fetch for JSON loading
-    global.fetch = jest.fn();
+    fetch.mockClear();
     
     // Setup message routing system
     messageRoutes = new Map();
-    
-    jest.clearAllMocks();
   });
 
   afterEach(() => {
-    chromeMocks.reset();
+    // Cleanup is handled in setup.js
     jest.resetModules();
   });
 
@@ -41,11 +40,11 @@ describe('Message Passing Integration', () => {
       const sentMessages = [];
       const testTabs = [{ id: 1 }, { id: 2 }, { id: 3 }];
       
-      chromeMocks.chrome.tabs.query.callsFake((query, callback) => {
+      chrome.tabs.query.mockImplementation((query, callback) => {
         callback(testTabs);
       });
       
-      chromeMocks.chrome.tabs.sendMessage.callsFake((tabId, message, callback) => {
+      chrome.tabs.sendMessage.mockImplementation((tabId, message, callback) => {
         sentMessages.push({ tabId, message });
         if (callback) callback({ success: true });
       });
@@ -53,10 +52,10 @@ describe('Message Passing Integration', () => {
       // Act
       // Simulate background script sending toggle command to all tabs
       await new Promise(resolve => {
-        chromeMocks.chrome.tabs.query({}, (tabs) => {
+        chrome.tabs.query({}, (tabs) => {
           const promises = tabs.map(tab => 
             new Promise(msgResolve => {
-              chromeMocks.chrome.tabs.sendMessage(
+              chrome.tabs.sendMessage(
                 tab.id, 
                 { action: 'toggleInterface' },
                 msgResolve
@@ -79,11 +78,11 @@ describe('Message Passing Integration', () => {
       // Arrange
       const messageAttempts = [];
       
-      chromeMocks.chrome.tabs.sendMessage.callsFake((tabId, message, callback) => {
+      chrome.tabs.sendMessage.mockImplementation((tabId, message, callback) => {
         messageAttempts.push({ tabId, message, timestamp: Date.now() });
         
         // Simulate content script not loaded
-        chromeMocks.chrome.runtime.lastError = { 
+        chrome.runtime.lastError = { 
           message: 'Could not establish connection. Receiving end does not exist.' 
         };
         
@@ -94,9 +93,9 @@ describe('Message Passing Integration', () => {
       let errorOccurred = false;
       try {
         await new Promise((resolve, reject) => {
-          chromeMocks.chrome.tabs.sendMessage(1, { action: 'ping' }, (response) => {
-            if (chromeMocks.chrome.runtime.lastError) {
-              reject(new Error(chromeMocks.chrome.runtime.lastError.message));
+          chrome.tabs.sendMessage(1, { action: 'ping' }, (response) => {
+            if (chrome.runtime.lastError) {
+              reject(new Error(chrome.runtime.lastError.message));
             } else {
               resolve(response);
             }
@@ -121,11 +120,11 @@ describe('Message Passing Integration', () => {
         { id: 3, url: 'https://github.com' }
       ];
       
-      chromeMocks.chrome.tabs.query.callsFake((query, callback) => {
+      chrome.tabs.query.mockImplementation((query, callback) => {
         callback(activeTabs);
       });
       
-      chromeMocks.chrome.tabs.sendMessage.callsFake((tabId, message, callback) => {
+      chrome.tabs.sendMessage.mockImplementation((tabId, message, callback) => {
         broadcastMessages.push({ tabId, message });
         if (callback) callback({ received: true });
       });
@@ -137,10 +136,10 @@ describe('Message Passing Integration', () => {
       };
       
       await new Promise(resolve => {
-        chromeMocks.chrome.tabs.query({}, (tabs) => {
+        chrome.tabs.query({}, (tabs) => {
           const broadcasts = tabs.map(tab =>
             new Promise(broadcastResolve => {
-              chromeMocks.chrome.tabs.sendMessage(tab.id, settingsUpdate, broadcastResolve);
+              chrome.tabs.sendMessage(tab.id, settingsUpdate, broadcastResolve);
             })
           );
           Promise.all(broadcasts).then(resolve);
@@ -165,7 +164,7 @@ describe('Message Passing Integration', () => {
         ['getUserPreferences', { preferences: testUserPreferences }]
       ]);
       
-      chromeMocks.chrome.runtime.sendMessage.callsFake((message, callback) => {
+      chrome.runtime.sendMessage.mockImplementation((message, callback) => {
         const response = backgroundResponses.get(message.action);
         if (callback) callback(response);
       });
@@ -173,7 +172,7 @@ describe('Message Passing Integration', () => {
       // Act & Assert - Test each data request type
       for (const [action, expectedResponse] of backgroundResponses) {
         const response = await new Promise(resolve => {
-          chromeMocks.chrome.runtime.sendMessage({ action }, resolve);
+          chrome.runtime.sendMessage({ action }, resolve);
         });
         
         expect(response).toEqual(expectedResponse);
@@ -182,8 +181,8 @@ describe('Message Passing Integration', () => {
 
     test('should handle background script unavailable errors', async () => {
       // Arrange
-      chromeMocks.chrome.runtime.sendMessage.callsFake((message, callback) => {
-        chromeMocks.chrome.runtime.lastError = { 
+      chrome.runtime.sendMessage.mockImplementation((message, callback) => {
+        chrome.runtime.lastError = { 
           message: 'Extension context invalidated.' 
         };
         if (callback) callback(null);
@@ -193,9 +192,9 @@ describe('Message Passing Integration', () => {
       let contextError = false;
       try {
         await new Promise((resolve, reject) => {
-          chromeMocks.chrome.runtime.sendMessage({ action: 'ping' }, (response) => {
-            if (chromeMocks.chrome.runtime.lastError) {
-              reject(new Error(chromeMocks.chrome.runtime.lastError.message));
+          chrome.runtime.sendMessage({ action: 'ping' }, (response) => {
+            if (chrome.runtime.lastError) {
+              reject(new Error(chrome.runtime.lastError.message));
             } else {
               resolve(response);
             }
@@ -216,17 +215,17 @@ describe('Message Passing Integration', () => {
       let backgroundAvailable = false;
       let retryCount = 0;
       
-      chromeMocks.chrome.runtime.sendMessage.callsFake((message, callback) => {
+      chrome.runtime.sendMessage.mockImplementation((message, callback) => {
         messageQueue.push(message);
         
         if (!backgroundAvailable && retryCount < 2) {
           retryCount++;
-          chromeMocks.chrome.runtime.lastError = { message: 'Background script not ready' };
+          chrome.runtime.lastError = { message: 'Background script not ready' };
           if (callback) callback(null);
         } else {
           // Background becomes available
           backgroundAvailable = true;
-          delete chromeMocks.chrome.runtime.lastError;
+          delete chrome.runtime.lastError;
           if (callback) callback({ success: true, queued: messageQueue.length });
         }
       });
@@ -236,11 +235,11 @@ describe('Message Passing Integration', () => {
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
           finalResponse = await new Promise((resolve, reject) => {
-            chromeMocks.chrome.runtime.sendMessage(
+            chrome.runtime.sendMessage(
               { action: 'getSpecialists', attempt: attempt + 1 }, 
               (response) => {
-                if (chromeMocks.chrome.runtime.lastError) {
-                  reject(new Error(chromeMocks.chrome.runtime.lastError.message));
+                if (chrome.runtime.lastError) {
+                  reject(new Error(chrome.runtime.lastError.message));
                 } else {
                   resolve(response);
                 }
@@ -267,7 +266,7 @@ describe('Message Passing Integration', () => {
       // Arrange
       const savedPreferences = [];
       
-      chromeMocks.chrome.runtime.sendMessage.callsFake((message, callback) => {
+      chrome.runtime.sendMessage.mockImplementation((message, callback) => {
         if (message.action === 'saveUserPreferences') {
           savedPreferences.push(message.preferences);
           if (callback) callback({ success: true });
@@ -278,7 +277,7 @@ describe('Message Passing Integration', () => {
       const newPreferences = { theme: 'dark', autoOpen: true };
       
       await new Promise(resolve => {
-        chromeMocks.chrome.runtime.sendMessage({
+        chrome.runtime.sendMessage({
           action: 'saveUserPreferences',
           preferences: newPreferences
         }, resolve);
@@ -293,18 +292,18 @@ describe('Message Passing Integration', () => {
       // Arrange
       const specialistApplications = [];
       
-      chromeMocks.chrome.runtime.sendMessage.callsFake((message, callback) => {
+      chrome.runtime.sendMessage.mockImplementation((message, callback) => {
         if (message.action === 'applySpecialist') {
           specialistApplications.push(message);
           if (callback) callback({ success: true });
         }
       });
       
-      chromeMocks.chrome.tabs.query.callsFake((query, callback) => {
+      chrome.tabs.query.mockImplementation((query, callback) => {
         callback([{ id: 1, active: true }]);
       });
       
-      chromeMocks.chrome.tabs.sendMessage.callsFake((tabId, message, callback) => {
+      chrome.tabs.sendMessage.mockImplementation((tabId, message, callback) => {
         if (callback) callback({ success: true });
       });
       
@@ -316,14 +315,14 @@ describe('Message Passing Integration', () => {
       
       // Save preference
       await new Promise(resolve => {
-        chromeMocks.chrome.runtime.sendMessage(specialistApplication, resolve);
+        chrome.runtime.sendMessage(specialistApplication, resolve);
       });
       
       // Apply to active tab
       await new Promise(resolve => {
-        chromeMocks.chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
           if (tabs[0]) {
-            chromeMocks.chrome.tabs.sendMessage(
+            chrome.tabs.sendMessage(
               tabs[0].id,
               { action: 'changeSpecialist', specialistId: 'software-engineer' },
               resolve
@@ -334,7 +333,7 @@ describe('Message Passing Integration', () => {
       
       // Assert
       expect(specialistApplications).toHaveLength(1);
-      expect(chromeMocks.chrome.tabs.sendMessage).toHaveBeenCalledWith(
+      expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(
         1,
         { action: 'changeSpecialist', specialistId: 'software-engineer' },
         expect.any(Function)
@@ -348,14 +347,14 @@ describe('Message Passing Integration', () => {
       const messageFlow = [];
       
       // Mock background message handling
-      chromeMocks.chrome.runtime.sendMessage.callsFake((message, callback) => {
+      chrome.runtime.sendMessage.mockImplementation((message, callback) => {
         messageFlow.push({ component: 'background', message, timestamp: Date.now() });
         
         if (message.action === 'toggleInterface') {
           // Background forwards to content scripts
-          chromeMocks.chrome.tabs.query({}, (tabs) => {
+          chrome.tabs.query({}, (tabs) => {
             tabs.forEach(tab => {
-              chromeMocks.chrome.tabs.sendMessage(tab.id, message, () => {
+              chrome.tabs.sendMessage(tab.id, message, () => {
                 messageFlow.push({ 
                   component: 'content', 
                   tabId: tab.id, 
@@ -370,11 +369,11 @@ describe('Message Passing Integration', () => {
         if (callback) callback({ success: true });
       });
       
-      chromeMocks.chrome.tabs.query.callsFake((query, callback) => {
+      chrome.tabs.query.mockImplementation((query, callback) => {
         callback([{ id: 1 }, { id: 2 }]);
       });
       
-      chromeMocks.chrome.tabs.sendMessage.callsFake((tabId, message, callback) => {
+      chrome.tabs.sendMessage.mockImplementation((tabId, message, callback) => {
         messageFlow.push({ 
           component: 'content', 
           tabId, 
@@ -386,7 +385,7 @@ describe('Message Passing Integration', () => {
       
       // Act - Simulate popup initiating toggle
       await new Promise(resolve => {
-        chromeMocks.chrome.runtime.sendMessage({ action: 'toggleInterface' }, resolve);
+        chrome.runtime.sendMessage({ action: 'toggleInterface' }, resolve);
       });
       
       // Wait for async operations
@@ -411,7 +410,7 @@ describe('Message Passing Integration', () => {
       const messageAcks = [];
       
       // Setup bidirectional messaging
-      chromeMocks.chrome.runtime.sendMessage.callsFake((message, callback) => {
+      chrome.runtime.sendMessage.mockImplementation((message, callback) => {
         if (message.action === 'generateResponse') {
           // Simulate background processing and response
           setTimeout(() => {
@@ -428,7 +427,7 @@ describe('Message Passing Integration', () => {
       
       // Act
       const response = await new Promise(resolve => {
-        chromeMocks.chrome.runtime.sendMessage({
+        chrome.runtime.sendMessage({
           action: 'generateResponse',
           specialistId: 'software-engineer',
           modelId: 'gpt-4',
@@ -447,14 +446,14 @@ describe('Message Passing Integration', () => {
       // Arrange
       const timeoutMessages = [];
       
-      chromeMocks.chrome.runtime.sendMessage.callsFake((message, callback) => {
+      chrome.runtime.sendMessage.mockImplementation((message, callback) => {
         timeoutMessages.push({ message, timestamp: Date.now() });
         
         // Don't call callback to simulate timeout
         if (message.action === 'slow_operation') {
           // Simulate timeout scenario
           setTimeout(() => {
-            chromeMocks.chrome.runtime.lastError = { message: 'Operation timed out' };
+            chrome.runtime.lastError = { message: 'Operation timed out' };
             if (callback) callback(null);
           }, 100);
         } else {
@@ -467,9 +466,9 @@ describe('Message Passing Integration', () => {
       try {
         await Promise.race([
           new Promise((resolve, reject) => {
-            chromeMocks.chrome.runtime.sendMessage({ action: 'slow_operation' }, (response) => {
-              if (chromeMocks.chrome.runtime.lastError) {
-                reject(new Error(chromeMocks.chrome.runtime.lastError.message));
+            chrome.runtime.sendMessage({ action: 'slow_operation' }, (response) => {
+              if (chrome.runtime.lastError) {
+                reject(new Error(chrome.runtime.lastError.message));
               } else {
                 resolve(response);
               }
@@ -496,12 +495,12 @@ describe('Message Passing Integration', () => {
       const messageAttempts = [];
       let messageListener;
       
-      chromeMocks.chrome.runtime.onMessage.addListener.callsFake((listener) => {
+      chrome.runtime.onMessage.addListener.mockImplementation((listener) => {
         messageListener = listener;
       });
       
       // Setup message validation
-      chromeMocks.chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+      chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         messageAttempts.push({ message, sender });
         
         // Validate sender origin
@@ -543,12 +542,12 @@ describe('Message Passing Integration', () => {
       const sanitizedMessages = [];
       let messageListener;
       
-      chromeMocks.chrome.runtime.onMessage.addListener.callsFake((listener) => {
+      chrome.runtime.onMessage.addListener.mockImplementation((listener) => {
         messageListener = listener;
       });
       
       // Setup message sanitization
-      chromeMocks.chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+      chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         // Sanitize message content
         const sanitized = { ...message };
         if (sanitized.message && typeof sanitized.message === 'string') {
@@ -585,12 +584,12 @@ describe('Message Passing Integration', () => {
       const messageRates = new Map();
       let messageListener;
       
-      chromeMocks.chrome.runtime.onMessage.addListener.callsFake((listener) => {
+      chrome.runtime.onMessage.addListener.mockImplementation((listener) => {
         messageListener = listener;
       });
       
       // Setup rate limiting
-      chromeMocks.chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+      chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const senderId = sender.tab?.id || sender.url || 'unknown';
         const now = Date.now();
         
@@ -640,9 +639,9 @@ describe('Message Passing Integration', () => {
       const persistentMessages = [];
       let connectionLost = false;
       
-      chromeMocks.chrome.runtime.sendMessage.callsFake((message, callback) => {
+      chrome.runtime.sendMessage.mockImplementation((message, callback) => {
         if (connectionLost) {
-          chromeMocks.chrome.runtime.lastError = { 
+          chrome.runtime.lastError = { 
             message: 'Extension context invalidated.' 
           };
           if (callback) callback(null);
@@ -657,9 +656,9 @@ describe('Message Passing Integration', () => {
       let response1;
       try {
         response1 = await new Promise((resolve, reject) => {
-          chromeMocks.chrome.runtime.sendMessage({ action: 'ping', id: 1 }, (response) => {
-            if (chromeMocks.chrome.runtime.lastError) {
-              reject(new Error(chromeMocks.chrome.runtime.lastError.message));
+          chrome.runtime.sendMessage({ action: 'ping', id: 1 }, (response) => {
+            if (chrome.runtime.lastError) {
+              reject(new Error(chrome.runtime.lastError.message));
             } else {
               resolve(response);
             }
@@ -676,9 +675,9 @@ describe('Message Passing Integration', () => {
       let response2;
       try {
         response2 = await new Promise((resolve, reject) => {
-          chromeMocks.chrome.runtime.sendMessage({ action: 'ping', id: 2 }, (response) => {
-            if (chromeMocks.chrome.runtime.lastError) {
-              reject(new Error(chromeMocks.chrome.runtime.lastError.message));
+          chrome.runtime.sendMessage({ action: 'ping', id: 2 }, (response) => {
+            if (chrome.runtime.lastError) {
+              reject(new Error(chrome.runtime.lastError.message));
             } else {
               resolve(response);
             }
@@ -690,15 +689,15 @@ describe('Message Passing Integration', () => {
       
       // Connection restored
       connectionLost = false;
-      delete chromeMocks.chrome.runtime.lastError;
+      delete chrome.runtime.lastError;
       
       // Third message succeeds after recovery
       let response3;
       try {
         response3 = await new Promise((resolve, reject) => {
-          chromeMocks.chrome.runtime.sendMessage({ action: 'ping', id: 3 }, (response) => {
-            if (chromeMocks.chrome.runtime.lastError) {
-              reject(new Error(chromeMocks.chrome.runtime.lastError.message));
+          chrome.runtime.sendMessage({ action: 'ping', id: 3 }, (response) => {
+            if (chrome.runtime.lastError) {
+              reject(new Error(chrome.runtime.lastError.message));
             } else {
               resolve(response);
             }

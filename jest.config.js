@@ -55,7 +55,7 @@ module.exports = {
   },
   
   // Module mapping
-  moduleNameMapping: {
+  moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/$1',
     '^@tests/(.*)$': '<rootDir>/tests/$1'
   },
@@ -77,8 +77,8 @@ module.exports = {
     browser: 'readonly'
   },
   
-  // Test timeout
-  testTimeout: 30000,
+  // Test timeout (use per-project configuration instead)
+  // testTimeout: 30000, // Deprecated - using per-project configuration
   
   // Clear mocks between tests
   clearMocks: true,
@@ -105,24 +105,34 @@ module.exports = {
   projects: [
     {
       displayName: 'unit',
-      testMatch: ['<rootDir>/tests/unit/**/*.spec.js']
+      testMatch: ['<rootDir>/tests/unit/**/*.spec.js'],
+      setupFilesAfterEnv: ['<rootDir>/tests/setup.js'],
+      testEnvironment: 'jsdom'
     },
     {
       displayName: 'integration', 
-      testMatch: ['<rootDir>/tests/integration/**/*.spec.js']
+      testMatch: ['<rootDir>/tests/integration/**/*.spec.js'],
+      setupFilesAfterEnv: ['<rootDir>/tests/setup.js'],
+      testEnvironment: 'jsdom'
     },
     {
       displayName: 'e2e',
       testMatch: ['<rootDir>/tests/e2e/**/*.spec.js'],
-      testTimeout: 60000 // Longer timeout for E2E tests
+      setupFilesAfterEnv: ['<rootDir>/tests/setup.js'],
+      testEnvironment: 'node',
+      // Use individual test timeouts instead of global timeout
     },
     {
       displayName: 'security',
-      testMatch: ['<rootDir>/tests/security/**/*.spec.js']
+      testMatch: ['<rootDir>/tests/security/**/*.spec.js'],
+      setupFilesAfterEnv: ['<rootDir>/tests/setup.js'],
+      testEnvironment: 'jsdom'
     },
     {
       displayName: 'performance',
-      testMatch: ['<rootDir>/tests/performance/**/*.spec.js']
+      testMatch: ['<rootDir>/tests/performance/**/*.spec.js'],
+      setupFilesAfterEnv: ['<rootDir>/tests/setup.js'],
+      testEnvironment: 'jsdom'
     }
   ]
 };

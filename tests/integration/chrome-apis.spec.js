@@ -3,7 +3,6 @@
  * Tests real Chrome API behaviors and extension integration points
  */
 
-const { ChromeApiMocks } = require('../mocks/chrome-apis');
 const { 
   testSpecialists, 
   testModels, 
@@ -12,21 +11,20 @@ const {
 } = require('../fixtures/test-data');
 
 describe('Chrome Extension API Integration', () => {
-  let chromeMocks;
-  
   beforeEach(() => {
-    chromeMocks = new ChromeApiMocks();
-    global.chrome = chromeMocks.chrome;
-    chromeMocks.setupDefaultBehaviors();
+    // Chrome API is already mocked in setup.js
+    // Just ensure we have fresh mocks for each test
+    jest.clearAllMocks();
+    
+    // Reset Chrome API lastError
+    chrome.runtime.lastError = null;
     
     // Mock fetch for JSON file loading
-    global.fetch = jest.fn();
-    
-    jest.clearAllMocks();
+    fetch.mockClear();
   });
 
   afterEach(() => {
-    chromeMocks.reset();
+    // Cleanup is handled in setup.js
   });
 
   describe('Storage API Integration', () => {
@@ -39,18 +37,18 @@ describe('Chrome Extension API Integration', () => {
         }
       };
       
-      chromeMocks.chrome.storage.local.set.callsFake((data, callback) => {
-        chromeMocks.chrome.runtime.lastError = { message: 'QUOTA_BYTES quota exceeded' };
-        callback && callback();
+      chrome.storage.local.set.mockImplementation((data, callback) => {
+        chrome.runtime.lastError = { message: 'QUOTA_BYTES quota exceeded' };
+        if (callback) callback();
       });
       
       // Act
       let errorCaught = false;
       try {
         await new Promise((resolve, reject) => {
-          chromeMocks.chrome.storage.local.set(largeData, () => {
-            if (chromeMocks.chrome.runtime.lastError) {
-              reject(new Error(chromeMocks.chrome.runtime.lastError.message));
+          chrome.storage.local.set(largeData, () => {
+            if (chrome.runtime.lastError) {
+              reject(new Error(chrome.runtime.lastError.message));
             } else {
               resolve();
             }
@@ -63,7 +61,7 @@ describe('Chrome Extension API Integration', () => {
       
       // Assert
       expect(errorCaught).toBe(true);
-      expect(chromeMocks.chrome.storage.local.set).toHaveBeenCalledWith(largeData, expect.any(Function));
+      expect(chrome.storage.local.set).toHaveBeenCalledWith(largeData, expect.any(Function));
     });
 
     test('should handle storage.local.get with multiple keys', async () => {
@@ -74,11 +72,11 @@ describe('Chrome Extension API Integration', () => {
         [testStorageKeys.USER_PREFERENCES]: testUserPreferences
       };
       
-      chromeMocks.mockStorageWithData(testData);
+      testUtils.createMockStorageData(testData);
       
       // Act
       const result = await new Promise((resolve) => {
-        chromeMocks.chrome.storage.local.get([
+        chrome.storage.local.get([
           testStorageKeys.SPECIALISTS,
           testStorageKeys.MODELS,
           testStorageKeys.USER_PREFERENCES
@@ -91,7 +89,7 @@ describe('Chrome Extension API Integration', () => {
 
     test('should handle storage.local.get with default values', async () => {
       // Arrange
-      chromeMocks.mockStorageWithData({}); // Empty storage
+      testUtils.createMockStorageData({}); // Empty storage
       const defaultValues = {
         [testStorageKeys.USER_PREFERENCES]: { theme: 'light' },
         [testStorageKeys.CUSTOM_RULES]: { global: [] }
@@ -99,7 +97,7 @@ describe('Chrome Extension API Integration', () => {
       
       // Act
       const result = await new Promise((resolve) => {
-        chromeMocks.chrome.storage.local.get(defaultValues, resolve);
+        chrome.storage.local.get(defaultValues, resolve);
       });
       
       // Assert
@@ -119,7 +117,7 @@ describe('Chrome Extension API Integration', () => {
       testData.forEach((item, index) => {
         const operation = new Promise((resolve) => {
           setTimeout(() => {
-            chromeMocks.chrome.storage.local.set({ [item.key]: item.value }, resolve);
+            chrome.storage.local.set({ [item.key]: item.value }, resolve);
           }, index * 10); // Stagger operations slightly
         });
         operations.push(operation);
@@ -129,9 +127,9 @@ describe('Chrome Extension API Integration', () => {
       await Promise.all(operations);
       
       // Assert
-      expect(chromeMocks.chrome.storage.local.set).toHaveBeenCalledTimes(3);
+      expect(chrome.storage.local.set).toHaveBeenCalledTimes(3);
       testData.forEach(item => {
-        expect(chromeMocks.chrome.storage.local.set).toHaveBeenCalledWith(
+        expect(chrome.storage.local.set).toHaveBeenCalledWith(
           { [item.key]: item.value },
           expect.any(Function)
         );
@@ -146,11 +144,11 @@ describe('Chrome Extension API Integration', () => {
         [testStorageKeys.USER_PREFERENCES]: 'invalid-json-string'
       };
       
-      chromeMocks.mockStorageWithData(corruptedData);
+      testUtils.createMockStorageData(corruptedData);
       
       // Act & Assert - Should handle corrupted data gracefully
       const result = await new Promise((resolve) => {
-        chromeMocks.chrome.storage.local.get([
+        chrome.storage.local.get([
           testStorageKeys.SPECIALISTS,
           testStorageKeys.MODELS,
           testStorageKeys.USER_PREFERENCES
@@ -167,7 +165,7 @@ describe('Chrome Extension API Integration', () => {
     test('should handle message channel disconnection', async () => {
       // Arrange
       let messageListener;
-      chromeMocks.chrome.runtime.onMessage.addListener.callsFake((listener) => {
+      chrome.runtime.onMessage.addListener.callsFake((listener) => {
         messageListener = listener;
       });
       
@@ -176,14 +174,14 @@ describe('Chrome Extension API Integration', () => {
       const mockSendResponse = jest.fn();
       
       // Act - Simulate disconnection
-      chromeMocks.chrome.runtime.lastError = { message: 'The message port closed before a response was received.' };
+      chrome.runtime.lastError = { message: 'The message port closed before a response was received.' };
       
       if (messageListener) {
         messageListener({ action: 'getSpecialists' }, mockSender, mockSendResponse);
       }
       
       // Assert - Should handle disconnection gracefully
-      expect(chromeMocks.chrome.runtime.lastError).toBeTruthy();
+      expect(chrome.runtime.lastError).toBeTruthy();
     });
 
     test('should handle cross-origin messaging restrictions', async () => {
@@ -242,23 +240,23 @@ describe('Chrome Extension API Integration', () => {
       const contentToBackgroundMessages = [];
       
       // Mock background script sending messages
-      chromeMocks.chrome.tabs.sendMessage.callsFake((tabId, message, callback) => {
+      chrome.tabs.sendMessage.callsFake((tabId, message, callback) => {
         backgroundToContentMessages.push({ tabId, message });
         if (callback) callback({ received: true });
       });
       
       // Mock content script sending messages  
-      chromeMocks.chrome.runtime.sendMessage.callsFake((message, callback) => {
+      chrome.runtime.sendMessage.callsFake((message, callback) => {
         contentToBackgroundMessages.push(message);
         if (callback) callback({ received: true });
       });
       
       // Act - Simulate bidirectional communication
       // Background -> Content
-      chromeMocks.chrome.tabs.sendMessage(1, { action: 'toggleInterface' });
+      chrome.tabs.sendMessage(1, { action: 'toggleInterface' });
       
       // Content -> Background
-      chromeMocks.chrome.runtime.sendMessage({ action: 'getSpecialists' });
+      chrome.runtime.sendMessage({ action: 'getSpecialists' });
       
       // Assert
       expect(backgroundToContentMessages).toHaveLength(1);
@@ -282,7 +280,7 @@ describe('Chrome Extension API Integration', () => {
         onActivated: { addListener: jest.fn() }
       };
       
-      Object.assign(chromeMocks.chrome.tabs, mockTabsApi);
+      Object.assign(chrome.tabs, mockTabsApi);
       
       // Act - Setup listeners
       mockTabsApi.onCreated.addListener((tab) => {
@@ -315,7 +313,7 @@ describe('Chrome Extension API Integration', () => {
         { id: 4, url: 'https://github.com', active: false, currentWindow: true }
       ];
       
-      chromeMocks.chrome.tabs.query.callsFake((queryInfo, callback) => {
+      chrome.tabs.query.callsFake((queryInfo, callback) => {
         let filteredTabs = testTabs;
         
         if (queryInfo.active !== undefined) {
@@ -340,7 +338,7 @@ describe('Chrome Extension API Integration', () => {
       // Act & Assert
       // Query active tab in current window
       await new Promise(resolve => {
-        chromeMocks.chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
           expect(tabs).toHaveLength(1);
           expect(tabs[0].id).toBe(1);
           resolve();
@@ -349,7 +347,7 @@ describe('Chrome Extension API Integration', () => {
       
       // Query all tabs in current window
       await new Promise(resolve => {
-        chromeMocks.chrome.tabs.query({ currentWindow: true }, (tabs) => {
+        chrome.tabs.query({ currentWindow: true }, (tabs) => {
           expect(tabs).toHaveLength(3); // Excludes tab 3
           resolve();
         });
@@ -357,7 +355,7 @@ describe('Chrome Extension API Integration', () => {
       
       // Query tabs by URL pattern
       await new Promise(resolve => {
-        chromeMocks.chrome.tabs.query({ url: 'https://*' }, (tabs) => {
+        chrome.tabs.query({ url: 'https://*' }, (tabs) => {
           const httpsCount = testTabs.filter(tab => tab.url.startsWith('https://')).length;
           expect(tabs).toHaveLength(httpsCount);
           resolve();
@@ -392,7 +390,7 @@ describe('Chrome Extension API Integration', () => {
       // Arrange
       let injectionAttempts = 0;
       
-      chromeMocks.chrome.scripting.executeScript.callsFake(() => {
+      chrome.scripting.executeScript.callsFake(() => {
         injectionAttempts++;
         if (injectionAttempts === 1) {
           return Promise.reject(new Error('Cannot access chrome:// URL'));
@@ -404,14 +402,14 @@ describe('Chrome Extension API Integration', () => {
       // Act - Attempt injection with retry logic
       let injectionResult;
       try {
-        await chromeMocks.chrome.scripting.executeScript({
+        await chrome.scripting.executeScript({
           target: { tabId: 1 },
           files: ['content/content.js']
         });
       } catch (firstError) {
         // Retry with different tab
         try {
-          injectionResult = await chromeMocks.chrome.scripting.executeScript({
+          injectionResult = await chrome.scripting.executeScript({
             target: { tabId: 2 },
             files: ['content/content.js']
           });
@@ -429,18 +427,18 @@ describe('Chrome Extension API Integration', () => {
       // Arrange
       const cssInjections = [];
       
-      chromeMocks.chrome.scripting.insertCSS.callsFake((injection) => {
+      chrome.scripting.insertCSS.callsFake((injection) => {
         cssInjections.push(injection);
         return Promise.resolve();
       });
       
       // Act - Inject CSS in different ways
-      await chromeMocks.chrome.scripting.insertCSS({
+      await chrome.scripting.insertCSS({
         target: { tabId: 1 },
         files: ['content/content.css']
       });
       
-      await chromeMocks.chrome.scripting.insertCSS({
+      await chrome.scripting.insertCSS({
         target: { tabId: 1 },
         css: '.ai-guide { display: block; }'
       });
@@ -459,10 +457,10 @@ describe('Chrome Extension API Integration', () => {
         { error: 'Script error occurred' }
       ];
       
-      chromeMocks.chrome.scripting.executeScript.resolves(executionResults);
+      chrome.scripting.executeScript.resolves(executionResults);
       
       // Act
-      const results = await chromeMocks.chrome.scripting.executeScript({
+      const results = await chrome.scripting.executeScript({
         target: { tabId: 1 },
         func: () => ({ success: true, data: 'test' })
       });
@@ -480,7 +478,7 @@ describe('Chrome Extension API Integration', () => {
       // Arrange
       const registeredCommands = new Set();
       
-      chromeMocks.chrome.commands.onCommand.addListener.callsFake((listener) => {
+      chrome.commands.onCommand.addListener.callsFake((listener) => {
         // Simulate command registration
         const commands = ['toggle_interface', '_execute_action'];
         commands.forEach(cmd => registeredCommands.add(cmd));
@@ -488,7 +486,7 @@ describe('Chrome Extension API Integration', () => {
       
       // Act
       const commandListener = jest.fn();
-      chromeMocks.chrome.commands.onCommand.addListener(commandListener);
+      chrome.commands.onCommand.addListener(commandListener);
       
       // Assert
       expect(registeredCommands.has('toggle_interface')).toBe(true);
@@ -500,12 +498,12 @@ describe('Chrome Extension API Integration', () => {
       const commandExecutions = [];
       let commandListener;
       
-      chromeMocks.chrome.commands.onCommand.addListener.callsFake((listener) => {
+      chrome.commands.onCommand.addListener.callsFake((listener) => {
         commandListener = listener;
       });
       
       // Setup listener
-      chromeMocks.chrome.commands.onCommand.addListener((command) => {
+      chrome.commands.onCommand.addListener((command) => {
         commandExecutions.push({ command, timestamp: Date.now() });
       });
       
@@ -532,7 +530,7 @@ describe('Chrome Extension API Integration', () => {
         remove: jest.fn()
       };
       
-      chromeMocks.chrome.permissions = mockPermissions;
+      chrome.permissions = mockPermissions;
       
       // Act - Check for existing permissions
       mockPermissions.contains.mockImplementation((permissions, callback) => {
@@ -580,7 +578,7 @@ describe('Chrome Extension API Integration', () => {
         contains: jest.fn()
       };
       
-      chromeMocks.chrome.permissions = mockPermissions;
+      chrome.permissions = mockPermissions;
       
       mockPermissions.contains.mockImplementation((permissions, callback) => {
         const requestedOrigins = permissions.origins || [];
@@ -613,12 +611,12 @@ describe('Chrome Extension API Integration', () => {
       const lifecycleEvents = [];
       let installListener;
       
-      chromeMocks.chrome.runtime.onInstalled.addListener.callsFake((listener) => {
+      chrome.runtime.onInstalled.addListener.callsFake((listener) => {
         installListener = listener;
       });
       
       // Setup listener
-      chromeMocks.chrome.runtime.onInstalled.addListener((details) => {
+      chrome.runtime.onInstalled.addListener((details) => {
         lifecycleEvents.push(details);
       });
       
@@ -646,7 +644,7 @@ describe('Chrome Extension API Integration', () => {
         onSuspendCanceled: { addListener: jest.fn() }
       };
       
-      Object.assign(chromeMocks.chrome.runtime, mockServiceWorkerEvents);
+      Object.assign(chrome.runtime, mockServiceWorkerEvents);
       
       // Act - Setup listeners
       mockServiceWorkerEvents.onStartup.addListener(() => {

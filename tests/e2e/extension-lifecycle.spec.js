@@ -16,55 +16,126 @@ describe('Extension Lifecycle E2E Tests', () => {
   const TEST_TIMEOUT = 30000;
 
   beforeAll(async () => {
-    // Launch browser with extension loaded
-    browser = await puppeteer.launch({
-      headless: process.env.CI ? true : false, // Show browser in development
-      args: [
-        `--disable-extensions-except=${EXTENSION_PATH}`,
-        `--load-extension=${EXTENSION_PATH}`,
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-gpu'
-      ]
-    });
+    try {
+      // Launch browser with extension loaded
+      browser = await puppeteer.launch({
+        headless: process.env.CI !== 'false', // Show browser when CI=false
+        args: [
+          `--disable-extensions-except=${EXTENSION_PATH}`,
+          `--load-extension=${EXTENSION_PATH}`,
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-gpu',
+          '--disable-features=VizDisplayCompositor',
+          '--remote-debugging-port=0', // Let Chrome choose the port
+          '--disable-background-timer-throttling',
+          '--disable-backgrounding-occluded-windows',
+          '--disable-renderer-backgrounding',
+        ]
+      });
 
-    // Wait for extension to load
-    await new Promise(resolve => setTimeout(resolve, 2000));
+      // Wait for browser to initialize
+      await new Promise(resolve => setTimeout(resolve, 3000));
 
-    // Get extension ID
-    const targets = await browser.targets();
-    const extensionTarget = targets.find(target => 
-      target.type() === 'service_worker' && 
-      target.url().includes('chrome-extension://')
-    );
+      // Try multiple times to get extension ID
+      let attempts = 0;
+      const maxAttempts = 10;
+      
+      while (!extensionId && attempts < maxAttempts) {
+        attempts++;
+        try {
+          const targets = await browser.targets();
+          const extensionTarget = targets.find(target => 
+            target.type() === 'service_worker' && 
+            target.url().includes('chrome-extension://')
+          );
 
-    if (extensionTarget) {
-      extensionId = extensionTarget.url().split('/')[2];
+          if (extensionTarget) {
+            extensionId = extensionTarget.url().split('/')[2];
+            break;
+          }
+          
+          // Wait between attempts
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        } catch (error) {
+          console.warn(`Attempt ${attempts} to find extension failed:`, error.message);
+          if (attempts === maxAttempts) {
+            throw error;
+          }
+        }
+      }
+
+      if (!extensionId) {
+        throw new Error('Extension ID not found after maximum attempts');
+      }
+
+    } catch (error) {
+      console.error('Browser setup failed:', error);
+      throw error;
     }
-
-    expect(extensionId).toBeTruthy();
   }, TEST_TIMEOUT);
 
   afterAll(async () => {
     if (browser) {
-      await browser.close();
+      try {
+        await browser.close();
+      } catch (error) {
+        console.warn('Error closing browser:', error.message);
+        // Try force kill if close fails
+        try {
+          const process = browser.process();
+          if (process) {
+            process.kill('SIGKILL');
+          }
+        } catch (killError) {
+          console.warn('Error force-killing browser process:', killError.message);
+        }
+      }
     }
   });
 
   beforeEach(async () => {
-    // Create new test page
-    testPage = await browser.newPage();
-    await testPage.goto('https://example.com', { waitUntil: 'networkidle0' });
+    try {
+      // Create new test page
+      testPage = await browser.newPage();
+      await testPage.goto('https://example.com', { 
+        waitUntil: 'networkidle0',
+        timeout: 10000 
+      });
+    } catch (error) {
+      console.warn('Failed to create test page:', error.message);
+      // Try with a simpler page
+      try {
+        if (testPage) {
+          await testPage.goto('data:text/html,<html><body>Test</body></html>');
+        }
+      } catch (fallbackError) {
+        throw new Error(`Failed to create test page: ${error.message}`);
+      }
+    }
   });
 
   afterEach(async () => {
-    if (testPage) {
-      await testPage.close();
+    const closePromises = [];
+    
+    if (testPage && !testPage.isClosed()) {
+      closePromises.push(
+        testPage.close().catch(error => 
+          console.warn('Error closing testPage:', error.message)
+        )
+      );
     }
+    
     if (extensionPage && !extensionPage.isClosed()) {
-      await extensionPage.close();
+      closePromises.push(
+        extensionPage.close().catch(error => 
+          console.warn('Error closing extensionPage:', error.message)
+        )
+      );
     }
+    
+    await Promise.allSettled(closePromises);
   });
 
   describe('Extension Installation and Initialization', () => {

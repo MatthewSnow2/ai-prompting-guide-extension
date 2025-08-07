@@ -3,7 +3,108 @@
  * Sets up Chrome APIs mocking and global test environment
  */
 
-const { chrome } = require('sinon-chrome/extensions');
+// Using Jest mocks instead of sinon for better integration
+
+// Create Chrome API mocks using Jest functions where possible, with sinon for complex behaviors
+const createChromeMock = () => {
+  return {
+    runtime: {
+      getURL: jest.fn().mockImplementation((path) => `chrome-extension://test-extension-id/${path}`),
+      getManifest: jest.fn().mockReturnValue({
+        manifest_version: 3,
+        name: 'AI Prompting Guide',
+        version: '1.0.0'
+      }),
+      sendMessage: jest.fn().mockImplementation((message, callback) => {
+        if (callback) callback({ success: true });
+        return Promise.resolve({ success: true });
+      }),
+      onMessage: {
+        addListener: jest.fn(),
+        removeListener: jest.fn(),
+        hasListener: jest.fn()
+      },
+      onInstalled: {
+        addListener: jest.fn()
+      },
+      lastError: null
+    },
+    storage: {
+      local: {
+        get: jest.fn().mockImplementation((keys, callback) => {
+          if (typeof keys === 'function') {
+            callback = keys;
+            keys = null;
+          }
+          const result = {};
+          if (callback) callback(result);
+          return Promise.resolve(result);
+        }),
+        set: jest.fn().mockImplementation((data, callback) => {
+          if (callback) callback();
+          return Promise.resolve();
+        }),
+        remove: jest.fn().mockImplementation((keys, callback) => {
+          if (callback) callback();
+          return Promise.resolve();
+        }),
+        clear: jest.fn().mockImplementation((callback) => {
+          if (callback) callback();
+          return Promise.resolve();
+        })
+      }
+    },
+    tabs: {
+      query: jest.fn().mockImplementation((queryInfo, callback) => {
+        const result = [{
+          id: 1,
+          url: 'https://example.com',
+          active: true,
+          currentWindow: true
+        }];
+        if (callback) callback(result);
+        return Promise.resolve(result);
+      }),
+      sendMessage: jest.fn().mockImplementation((tabId, message, callback) => {
+        const result = { success: true };
+        if (callback) callback(result);
+        return Promise.resolve(result);
+      }),
+      create: jest.fn().mockImplementation((createProperties, callback) => {
+        const tab = { id: 2, url: createProperties.url };
+        if (callback) callback(tab);
+        return Promise.resolve(tab);
+      })
+    },
+    commands: {
+      onCommand: {
+        addListener: jest.fn()
+      }
+    },
+    scripting: {
+      executeScript: jest.fn().mockResolvedValue([{ result: true }]),
+      insertCSS: jest.fn().mockResolvedValue()
+    },
+    permissions: {
+      contains: jest.fn().mockImplementation((permissions, callback) => {
+        if (callback) callback(true);
+        return Promise.resolve(true);
+      }),
+      request: jest.fn().mockImplementation((permissions, callback) => {
+        if (callback) callback(true);
+        return Promise.resolve(true);
+      }),
+      remove: jest.fn().mockImplementation((permissions, callback) => {
+        if (callback) callback(true);
+        return Promise.resolve(true);
+      })
+    },
+    // Add flush method for compatibility with sinon-chrome usage in tests
+    flush: jest.fn()
+  };
+};
+
+const chrome = createChromeMock();
 
 // Mock Chrome APIs globally
 global.chrome = chrome;
@@ -28,32 +129,14 @@ global.MutationObserver = jest.fn().mockImplementation(() => ({
 // Setup default Chrome API responses
 beforeEach(() => {
   // Reset all Chrome API mocks
-  chrome.flush();
+  jest.clearAllMocks();
+  chrome.flush.mockClear();
   
-  // Setup default responses for common APIs
-  chrome.runtime.getURL.returns('chrome-extension://test-extension-id/');
-  chrome.runtime.getManifest.returns({
-    manifest_version: 3,
-    name: 'AI Prompting Guide',
-    version: '1.0.0'
-  });
+  // Reset Chrome API lastError
+  chrome.runtime.lastError = null;
   
-  // Setup storage API defaults
-  chrome.storage.local.get.yields({});
-  chrome.storage.local.set.yields();
-  chrome.storage.local.remove.yields();
-  chrome.storage.local.clear.yields();
-  
-  // Setup tabs API defaults
-  chrome.tabs.query.yields([]);
-  chrome.tabs.sendMessage.yields({});
-  
-  // Setup runtime messaging defaults
-  chrome.runtime.sendMessage.yields({});
-  chrome.runtime.onMessage.addListener.returns(true);
-  
-  // Setup commands API defaults
-  chrome.commands.onCommand.addListener.returns(true);
+  // Setup default implementations (they're already set in createChromeMock)
+  // but we can override them per test if needed
   
   // Clear fetch mock
   fetch.mockClear();
@@ -63,37 +146,77 @@ beforeEach(() => {
 afterEach(() => {
   // Clear all mocks
   jest.clearAllMocks();
-  chrome.flush();
+  
+  // Reset Chrome API lastError
+  chrome.runtime.lastError = null;
 });
 
 // Global test utilities
 global.testUtils = {
   // Helper to create mock chrome storage data
   createMockStorageData: (data = {}) => {
-    chrome.storage.local.get.withArgs(sinon.match.any).yields(data);
+    chrome.storage.local.get.mockImplementation((keys, callback) => {
+      if (typeof keys === 'function') {
+        callback = keys;
+        keys = null;
+      }
+      
+      if (!keys) {
+        if (callback) callback(data);
+        return Promise.resolve(data);
+      }
+      
+      const result = {};
+      if (Array.isArray(keys)) {
+        keys.forEach(key => {
+          if (key in data) {
+            result[key] = data[key];
+          }
+        });
+      } else if (typeof keys === 'string') {
+        if (keys in data) {
+          result[keys] = data[keys];
+        }
+      } else if (typeof keys === 'object') {
+        Object.keys(keys).forEach(key => {
+          result[key] = data[key] !== undefined ? data[key] : keys[key];
+        });
+      }
+      
+      if (callback) callback(result);
+      return Promise.resolve(result);
+    });
     return data;
   },
   
   // Helper to simulate chrome.runtime.sendMessage
   mockRuntimeMessage: (response, error = null) => {
-    if (error) {
-      chrome.runtime.sendMessage.yields(null);
-      chrome.runtime.lastError = error;
-    } else {
-      chrome.runtime.sendMessage.yields(response);
-      delete chrome.runtime.lastError;
-    }
+    chrome.runtime.sendMessage.mockImplementation((message, callback) => {
+      if (error) {
+        chrome.runtime.lastError = error;
+        if (callback) callback(null);
+        return Promise.reject(error);
+      } else {
+        chrome.runtime.lastError = null;
+        if (callback) callback(response);
+        return Promise.resolve(response);
+      }
+    });
   },
   
   // Helper to simulate chrome.tabs.sendMessage
   mockTabMessage: (response, error = null) => {
-    if (error) {
-      chrome.tabs.sendMessage.yields(null);
-      chrome.runtime.lastError = error;
-    } else {
-      chrome.tabs.sendMessage.yields(response);
-      delete chrome.runtime.lastError;
-    }
+    chrome.tabs.sendMessage.mockImplementation((tabId, message, callback) => {
+      if (error) {
+        chrome.runtime.lastError = error;
+        if (callback) callback(null);
+        return Promise.reject(error);
+      } else {
+        chrome.runtime.lastError = null;
+        if (callback) callback(response);
+        return Promise.resolve(response);
+      }
+    });
   },
   
   // Helper to create DOM element for popup testing

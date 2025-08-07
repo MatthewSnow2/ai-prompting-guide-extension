@@ -3,61 +3,59 @@
  * Provides detailed mocking utilities for Chrome extension APIs
  */
 
-const sinon = require('sinon');
-
 class ChromeApiMocks {
   constructor() {
     this.chrome = {
       runtime: {
-        getURL: sinon.stub(),
-        getManifest: sinon.stub(),
-        sendMessage: sinon.stub(),
+        getURL: jest.fn(),
+        getManifest: jest.fn(),
+        sendMessage: jest.fn(),
         onMessage: {
-          addListener: sinon.stub(),
-          removeListener: sinon.stub(),
-          hasListener: sinon.stub()
+          addListener: jest.fn(),
+          removeListener: jest.fn(),
+          hasListener: jest.fn()
         },
         onInstalled: {
-          addListener: sinon.stub()
+          addListener: jest.fn()
         },
         lastError: null
       },
       storage: {
         local: {
-          get: sinon.stub(),
-          set: sinon.stub(),
-          remove: sinon.stub(),
-          clear: sinon.stub()
+          get: jest.fn(),
+          set: jest.fn(),
+          remove: jest.fn(),
+          clear: jest.fn()
         }
       },
       tabs: {
-        query: sinon.stub(),
-        sendMessage: sinon.stub(),
-        create: sinon.stub()
+        query: jest.fn(),
+        sendMessage: jest.fn(),
+        create: jest.fn()
       },
       commands: {
         onCommand: {
-          addListener: sinon.stub()
+          addListener: jest.fn()
         }
       },
       scripting: {
-        executeScript: sinon.stub(),
-        insertCSS: sinon.stub()
+        executeScript: jest.fn(),
+        insertCSS: jest.fn()
       }
     };
   }
 
   setupDefaultBehaviors() {
     // Runtime API defaults
-    this.chrome.runtime.getURL.callsFake((path) => `chrome-extension://test-id/${path}`);
-    this.chrome.runtime.getManifest.returns({
+    this.chrome.runtime.getURL.mockImplementation((path) => `chrome-extension://test-id/${path}`);
+    this.chrome.runtime.getManifest.mockReturnValue({
       manifest_version: 3,
       name: 'AI Prompting Guide',
       version: '1.0.0'
     });
     
     // Storage API defaults - successful operations
-    this.chrome.storage.local.get.callsFake((keys, callback) => {
+    this.chrome.storage.local.get.mockImplementation((keys, callback) => {
       if (typeof keys === 'function') {
         callback = keys;
         keys = null;
@@ -65,36 +63,46 @@ class ChromeApiMocks {
       callback && callback({});
     });
     
-    this.chrome.storage.local.set.callsFake((data, callback) => {
+    this.chrome.storage.local.set.mockImplementation((data, callback) => {
       callback && callback();
     });
     
     // Tabs API defaults
-    this.chrome.tabs.query.callsFake((query, callback) => {
-      callback && callback([{
-        id: 1,
-        url: 'https://example.com',
-        active: true,
-        currentWindow: true
-      }]);
+    this.chrome.tabs.query.mockImplementation((query, callback) => {
+      const allTabs = [
+        { id: 1, url: 'https://example.com', active: true, currentWindow: true },
+        { id: 2, url: 'https://test.com', active: false, currentWindow: true },
+        { id: 3, url: 'http://localhost:3000', active: false, currentWindow: false }
+      ];
+      
+      let filteredTabs = allTabs;
+      
+      if (query.url) {
+        const pattern = query.url.replace('*', '.*');
+        filteredTabs = filteredTabs.filter(tab => new RegExp(pattern).test(tab.url));
+      }
+      
+      callback && callback(filteredTabs);
     });
     
-    this.chrome.tabs.sendMessage.callsFake((tabId, message, callback) => {
+    this.chrome.tabs.sendMessage.mockImplementation((tabId, message, callback) => {
       callback && callback({ success: true });
     });
     
     // Runtime messaging defaults
-    this.chrome.runtime.sendMessage.callsFake((message, callback) => {
+    this.chrome.runtime.sendMessage.mockImplementation((message, callback) => {
       callback && callback({ success: true });
     });
     
     // Scripting API defaults
-    this.chrome.scripting.executeScript.resolves([{ result: true }]);
-    this.chrome.scripting.insertCSS.resolves();
+    this.chrome.scripting.executeScript.mockResolvedValue([{ result: true }]);
+    this.chrome.scripting.insertCSS.mockResolvedValue();
+    
+    return this;
   }
 
   mockStorageWithData(data) {
-    this.chrome.storage.local.get.callsFake((keys, callback) => {
+    this.chrome.storage.local.get.mockImplementation((keys, callback) => {
       if (typeof keys === 'function') {
         callback = keys;
         keys = null;
@@ -124,73 +132,80 @@ class ChromeApiMocks {
       
       callback && callback(result);
     });
+    
+    return this;
   }
 
   mockStorageError(errorMessage = 'Storage error') {
     this.chrome.runtime.lastError = { message: errorMessage };
     
-    this.chrome.storage.local.get.callsFake((keys, callback) => {
+    this.chrome.storage.local.get.mockImplementation((keys, callback) => {
       callback && callback(null);
     });
     
-    this.chrome.storage.local.set.callsFake((data, callback) => {
+    this.chrome.storage.local.set.mockImplementation((data, callback) => {
       callback && callback();
     });
+    
+    return this;
   }
 
   mockTabsError(errorMessage = 'Tab error') {
     this.chrome.runtime.lastError = { message: errorMessage };
     
-    this.chrome.tabs.query.callsFake((query, callback) => {
+    this.chrome.tabs.query.mockImplementation((query, callback) => {
       callback && callback(null);
     });
     
-    this.chrome.tabs.sendMessage.callsFake((tabId, message, callback) => {
-      callback && callback(null);
-    });
+    return this;
   }
 
-  mockRuntimeError(errorMessage = 'Runtime error') {
-    this.chrome.runtime.lastError = { message: errorMessage };
+  mockStorageQuotaError() {
+    this.chrome.runtime.lastError = { message: 'QUOTA_EXCEEDED_ERR' };
     
-    this.chrome.runtime.sendMessage.callsFake((message, callback) => {
-      callback && callback(null);
+    this.chrome.storage.local.set.mockImplementation((data, callback) => {
+      const dataSize = JSON.stringify(data).length;
+      if (dataSize > 1000) { // Simulate quota exceeded for large data
+        callback && callback();
+      } else {
+        callback && callback();
+      }
     });
+    
+    return this;
   }
 
-  simulateMessageListener(action, response) {
-    // Helper to simulate message listener responses
-    const listeners = this.chrome.runtime.onMessage.addListener.getCalls()
-      .map(call => call.args[0]);
-    
-    listeners.forEach(listener => {
-      const mockSender = { tab: { id: 1 } };
-      const mockSendResponse = sinon.stub().callsFake((resp) => {
-        return resp;
-      });
-      
-      listener({ action }, mockSender, mockSendResponse);
-    });
-  }
-
-  reset() {
-    // Reset all stubs
-    Object.values(this.chrome.runtime).forEach(stub => {
-      if (stub && typeof stub.reset === 'function') stub.reset();
-    });
-    Object.values(this.chrome.storage.local).forEach(stub => {
-      if (stub && typeof stub.reset === 'function') stub.reset();
-    });
-    Object.values(this.chrome.tabs).forEach(stub => {
-      if (stub && typeof stub.reset === 'function') stub.reset();
+  clearAllMocks() {
+    // Clear all Jest mocks
+    Object.values(this.chrome.runtime).forEach(mock => {
+      if (typeof mock === 'function' && mock.mockClear) {
+        mock.mockClear();
+      }
     });
     
-    // Clear last error
+    Object.values(this.chrome.storage.local).forEach(mock => {
+      if (typeof mock === 'function' && mock.mockClear) {
+        mock.mockClear();
+      }
+    });
+    
+    Object.values(this.chrome.tabs).forEach(mock => {
+      if (typeof mock === 'function' && mock.mockClear) {
+        mock.mockClear();
+      }
+    });
+    
     this.chrome.runtime.lastError = null;
     
-    // Re-setup defaults
+    return this;
+  }
+
+  resetToDefaults() {
+    this.clearAllMocks();
     this.setupDefaultBehaviors();
+    return this;
   }
 }
 
+// Export for both CommonJS and ES modules
 module.exports = { ChromeApiMocks };
